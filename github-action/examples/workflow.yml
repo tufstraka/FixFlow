@@ -1,0 +1,107 @@
+name: Bounty Hunter - Automated Bug Bounties
+
+on:
+  workflow_run:
+    workflows: ["Tests", "CI", "Build"]  # Names of your test workflows
+    types:
+      - completed
+
+jobs:
+  create-bounty:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'failure' }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Create Bounty for Failed Tests
+        uses: bounty-hunter/bounty-hunter-action@v1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          bot_server_url: ${{ secrets.BOUNTY_HUNTER_SERVER_URL }}
+          bot_api_key: ${{ secrets.BOUNTY_HUNTER_API_KEY }}
+          bounty_amount: 50  # Default amount in MNEE
+          max_bounty: 150   # Maximum after escalation
+          config_file: .bounty-hunter.yml
+        id: bounty
+      
+      - name: Bounty Created Summary
+        if: steps.bounty.outputs.bounty_created == 'true'
+        run: |
+          echo "✅ Bounty created successfully!"
+          echo "Issue: ${{ steps.bounty.outputs.issue_url }}"
+          echo "Bounty ID: ${{ steps.bounty.outputs.bounty_id }}"
+
+# Alternative: Trigger on push/PR with test job
+---
+name: Tests with Bounty Hunter
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Run tests
+        run: npm test
+        continue-on-error: true
+        id: test
+      
+      - name: Create Bounty on Test Failure
+        if: steps.test.outcome == 'failure'
+        uses: bounty-hunter/bounty-hunter-action@v1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          bot_server_url: ${{ secrets.BOUNTY_HUNTER_SERVER_URL }}
+          bot_api_key: ${{ secrets.BOUNTY_HUNTER_API_KEY }}
+          bounty_amount: 50
+          on_failure_only: true
+
+# Example with custom configuration
+---
+name: Custom Bounty Configuration
+
+on:
+  workflow_dispatch:
+    inputs:
+      bounty_amount:
+        description: 'Bounty amount in MNEE'
+        required: false
+        default: '75'
+
+jobs:
+  test-and-bounty:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Run integration tests
+        run: |
+          ./scripts/run-integration-tests.sh
+        continue-on-error: true
+        id: integration-tests
+      
+      - name: Create Custom Bounty
+        if: steps.integration-tests.outcome == 'failure'
+        uses: bounty-hunter/bounty-hunter-action@v1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          bot_server_url: ${{ secrets.BOUNTY_HUNTER_SERVER_URL }}
+          bot_api_key: ${{ secrets.BOUNTY_HUNTER_API_KEY }}
+          bounty_amount: ${{ github.event.inputs.bounty_amount || '75' }}
+          max_bounty: 300  # Higher max for integration tests

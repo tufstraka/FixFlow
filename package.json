@@ -1,0 +1,39 @@
+{
+  "name": "bounty-hunter",
+  "version": "1.0.0",
+  "description": "Automated debugging bounty system for GitHub",
+  "private": true,
+  "workspaces": [
+    "contracts",
+    "bot",
+    "github-action",
+    "dashboard"
+  ],
+  "scripts": {
+    "install:all": "npm install && npm run install:contracts && npm run install:bot && npm run install:action && npm run install:dashboard",
+    "install:contracts": "cd contracts && npm install",
+    "install:bot": "cd bot && npm install",
+    "install:action": "cd github-action && npm install",
+    "install:dashboard": "cd dashboard && npm install",
+    "test": "npm run test:contracts && npm run test:bot",
+    "test:contracts": "cd contracts && npm test",
+    "test:bot": "cd bot && npm test",
+    "build": "npm run build:contracts && npm run build:bot && npm run build:action",
+    "build:contracts": "cd contracts && npm run build",
+    "build:bot": "cd bot && npm run build",
+    "build:action": "cd github-action && npm run build"
+  },
+  "keywords": [
+    "github",
+    "bounty",
+    "blockchain",
+    "ethereum",
+    "debugging",
+    "automation"
+  ],
+  "author": "Bounty Hunter Team",
+  "license": "MIT",
+  "devDependencies": {
+    "lerna": "^8.0.0"
+  }
+}

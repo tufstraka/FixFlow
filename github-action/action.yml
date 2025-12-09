@@ -1,0 +1,57 @@
+name: 'Bounty Hunter'
+description: 'Automatically create MNEE bounties for failing tests'
+author: 'Bounty Hunter Team'
+
+branding:
+  icon: 'dollar-sign'
+  color: 'green'
+
+inputs:
+  bounty_amount:
+    description: 'Default bounty amount in MNEE (can be overridden by config)'
+    required: false
+    default: '50'
+  
+  max_bounty:
+    description: 'Maximum bounty amount after escalation'
+    required: false
+    default: '150'
+  
+  config_file:
+    description: 'Path to bounty configuration file'
+    required: false
+    default: '.bounty-hunter.yml'
+  
+  on_failure_only:
+    description: 'Only trigger on test failures'
+    required: false
+    default: 'true'
+  
+  github_token:
+    description: 'GitHub token for API access'
+    required: true
+  
+  bot_server_url:
+    description: 'URL of the Bounty Hunter bot server'
+    required: true
+  
+  bot_api_key:
+    description: 'API key for authenticating with the bot'
+    required: true
+
+outputs:
+  bounty_created:
+    description: 'Whether a bounty was created'
+  
+  bounty_id:
+    description: 'ID of the created bounty'
+  
+  issue_number:
+    description: 'GitHub issue number created'
+  
+  issue_url:
+    description: 'URL of the created issue'
+
+runs:
+  using: 'node20'
+  main: 'dist/index.js'
