@@ -18,7 +18,7 @@ async function run() {
     // Get context
     const { context } = github;
     const octokit = github.getOctokit(githubToken);
-    
+
     // Check if this is a failed workflow
     if (onFailureOnly && context.workflow_run?.conclusion !== 'failure') {
       core.info('Workflow did not fail, skipping bounty creation');
@@ -53,7 +53,7 @@ async function run() {
     const workflowRun = context.payload.workflow_run || {};
     const runId = workflowRun.id || context.runId;
     const runNumber = workflowRun.run_number || context.runNumber;
-    
+
     // Get job logs to analyze failure
     const { data: jobs } = await octokit.rest.actions.listJobsForWorkflowRun({
       owner: context.repo.owner,
@@ -72,14 +72,14 @@ async function run() {
     // Extract error information
     let errorSummary = 'Test failure detected';
     let errorDetails = '';
-    
+
     if (failedJob) {
       errorSummary = `Failed job: ${failedJob.name}`;
-      
+
       // Get failed steps
       const failedSteps = failedJob.steps.filter(step => step.conclusion === 'failure');
       if (failedSteps.length > 0) {
-        errorDetails = failedSteps.map(step => 
+        errorDetails = failedSteps.map(step =>
           `- Step "${step.name}" failed`
         ).join('\n');
       }
@@ -87,13 +87,13 @@ async function run() {
 
     // Determine bounty amount based on configuration
     let bountyAmount = config.default_amount;
-    
+
     // Check for severity labels (would be added by maintainers)
     const labels = [];
     if (context.payload.issue?.labels) {
       labels.push(...context.payload.issue.labels.map(l => l.name));
     }
-    
+
     // Apply severity multipliers
     for (const label of labels) {
       if (label.startsWith('bounty:')) {
@@ -134,7 +134,7 @@ ${errorDetails}
 - **Escalation Schedule:** +20% after 24h, +50% after 72h, +100% after 1 week
 
 ---
-*This bounty was automatically created by [Bounty Hunter](https://github.com/bounty-hunter/bounty-hunter)*
+*This bounty was automatically created by [Bounty Hunter](https://github.com/tufstraka/bounty-hunter)*
 `;
 
     // Create GitHub issue
@@ -154,7 +154,7 @@ ${errorDetails}
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${botApiKey}`
+          'X-API-Key': botApiKey
         },
         body: JSON.stringify({
           repository: `${context.repo.owner}/${context.repo.repo}`,
@@ -176,7 +176,7 @@ ${errorDetails}
 
       const bountyData = await response.json();
       core.info(`Created blockchain bounty: ${bountyData.bountyId}`);
-      
+
       // Set outputs
       core.setOutput('bounty_created', 'true');
       core.setOutput('bounty_id', bountyData.bountyId);
@@ -199,7 +199,7 @@ The bounty is now active and locked in the smart contract. Good luck! 🚀`
 
     } catch (error) {
       core.error(`Failed to create blockchain bounty: ${error.message}`);
-      
+
       // Update issue to indicate blockchain creation failed
       await octokit.rest.issues.createComment({
         owner: context.repo.owner,
