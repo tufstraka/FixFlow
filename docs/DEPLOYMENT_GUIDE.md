@@ -4,7 +4,7 @@ This guide walks you through deploying the Bounty Hunter system to production.
 
 ## Table of Contents
 - [Prerequisites](#prerequisites)
-- [Smart Contract Deployment](#smart-contract-deployment)
+- [Database Setup](#database-setup)
 - [Bot Server Deployment](#bot-server-deployment)
 - [GitHub App Setup](#github-app-setup)
 - [MNEE Configuration](#mnee-configuration)
@@ -15,9 +15,10 @@ This guide walks you through deploying the Bounty Hunter system to production.
 
 Before deploying, ensure you have:
 
-1. **Ethereum Wallet**
-   - Funded with ETH for gas fees
-   - Private key available
+1. **PostgreSQL Database**
+   - Production PostgreSQL instance
+   - Secure connection credentials
+   - Backup strategy in place
 
 2. **MNEE Account**
    - Production API key
@@ -30,61 +31,38 @@ Before deploying, ensure you have:
 
 4. **Infrastructure**
    - Node.js server (v18+)
-   - MongoDB database
    - Domain with SSL
+   - Minimum 2GB RAM
 
-## Smart Contract Deployment
+## Database Setup
 
-### 1. Prepare Environment
-
-```bash
-cd bounty-hunter/contracts
-cp .env.example .env
-```
-
-Edit `.env`:
-```env
-PRIVATE_KEY=your_ethereum_private_key
-ETHERSCAN_API_KEY=your_etherscan_api_key
-INFURA_PROJECT_ID=your_infura_project_id
-BOT_WALLET_ADDRESS=your_bot_ethereum_address
-```
-
-### 2. Deploy to Mainnet
+### 1. Create Production Database
 
 ```bash
-# Install dependencies
-npm install
+# For cloud providers (e.g., AWS RDS, Google Cloud SQL)
+# Follow provider-specific instructions
 
-# Compile contracts
-npx hardhat compile
-
-# Deploy to mainnet
-npx hardhat run scripts/deploy.js --network mainnet
+# For self-hosted PostgreSQL
+sudo -u postgres psql
+CREATE DATABASE bounty_hunter_prod;
+CREATE USER bounty_prod WITH ENCRYPTED PASSWORD 'strong_password';
+GRANT ALL PRIVILEGES ON DATABASE bounty_hunter_prod TO bounty_prod;
+\q
 ```
 
-### 3. Verify Contract
+### 2. Configure SSL Connection
 
 ```bash
-npx hardhat verify --network mainnet DEPLOYED_CONTRACT_ADDRESS
+# Download SSL certificate from provider
+# Update connection string with SSL parameters
+DATABASE_URL="postgresql://user:pass@host:5432/db?sslmode=require&sslcert=client-cert.pem"
 ```
 
-### 4. Save Deployment Info
+### 3. Run Migrations
 
-The deployment script creates `deployments/mainnet-deployment.json`:
-```json
-{
-  "network": "mainnet",
-  "deployedAt": "2024-01-01T00:00:00Z",
-  "contracts": {
-    "BountyEscrow": {
-      "address": "0x..."
-    }
-  },
-  "configuration": {
-    "botWallet": "0x..."
-  }
-}
+```bash
+cd bounty-hunter/bot
+npm run db:migrate:prod
 ```
 
 ## Bot Server Deployment
@@ -104,7 +82,7 @@ git clone https://github.com/bounty-hunter/bounty-hunter.git
 cd bounty-hunter/bot
 
 # Install dependencies
-npm install
+npm install --production
 
 # Setup environment
 cp .env.example .env
@@ -121,18 +99,12 @@ PORT=3000
 BOT_URL=https://api.bounty-hunter.io
 
 # Database
-MONGODB_URI=mongodb://username:password@host:port/bounty-hunter
+DATABASE_URL=postgresql://bounty_prod:password@db.example.com:5432/bounty_hunter_prod?sslmode=require
 
 # GitHub App
 GITHUB_APP_ID=123456
 GITHUB_APP_PRIVATE_KEY="-----BEGIN RSA PRIVATE KEY-----..."
 GITHUB_WEBHOOK_SECRET=your_webhook_secret
-
-# Ethereum
-ETHEREUM_RPC_URL=https://mainnet.infura.io/v3/your_project_id
-BOT_WALLET_ADDRESS=0x...
-BOT_WALLET_PRIVATE_KEY=0x...
-BOUNTY_ESCROW_ADDRESS=0x...
 
 # MNEE
 MNEE_ENVIRONMENT=production
@@ -154,8 +126,27 @@ Use PM2 for process management:
 # Install PM2
 npm install -g pm2
 
+# Create ecosystem config
+cat > ecosystem.config.js << EOF
+module.exports = {
+  apps: [{
+    name: 'bounty-hunter-bot',
+    script: './src/index.js',
+    instances: 2,
+    exec_mode: 'cluster',
+    env: {
+      NODE_ENV: 'production'
+    },
+    error_file: './logs/err.log',
+    out_file: './logs/out.log',
+    log_file: './logs/combined.log',
+    time: true
+  }]
+}
+EOF
+
 # Start application
-pm2 start src/index.js --name bounty-hunter-bot
+pm2 start ecosystem.config.js
 
 # Save PM2 configuration
 pm2 save
@@ -321,7 +312,30 @@ pm2 install pm2-web
 curl https://api.bounty-hunter.io/health
 ```
 
-### 2. Error Tracking
+### 2. Database Monitoring
+
+**Connection Pool Monitoring:**
+```javascript
+// Add to db.js
+setInterval(async () => {
+  const pool = await pgPool.query('SELECT count(*) FROM pg_stat_activity');
+  console.log('Active connections:', pool.rows[0].count);
+}, 60000);
+```
+
+**Query Performance:**
+```sql
+-- Enable pg_stat_statements
+CREATE EXTENSION IF NOT EXISTS pg_stat_statements;
+
+-- View slow queries
+SELECT query, mean_exec_time, calls 
+FROM pg_stat_statements 
+ORDER BY mean_exec_time DESC 
+LIMIT 10;
+```
+
+### 3. Error Tracking
 
 Setup Sentry for error tracking:
 
@@ -334,7 +348,7 @@ const Sentry = require("@sentry/node");
 Sentry.init({ dsn: process.env.SENTRY_DSN });
 ```
 
-### 3. Metrics Dashboard
+### 4. Metrics Dashboard
 
 Setup Grafana + Prometheus:
 
@@ -368,14 +382,14 @@ const bountiesCreated = new promClient.Counter({
 register.registerMetric(bountiesCreated);
 ```
 
-### 4. Alerts
+### 5. Alerts
 
 Setup alerts for:
 - Low MNEE wallet balance (< 100 MNEE)
 - High error rate (> 1% of requests)
-- Smart contract failures
-- GitHub webhook failures
 - Database connection issues
+- GitHub webhook failures
+- Failed payment transactions
 
 ## Security Checklist
 
@@ -398,11 +412,11 @@ Setup alerts for:
 - [ ] Authentication on all routes
 - [ ] SQL injection prevention
 
-### 4. Smart Contract Security
-- [ ] Contract verified on Etherscan
-- [ ] Only authorized bots can call functions
-- [ ] No reentrancy vulnerabilities
-- [ ] Proper access controls
+### 4. Database Security
+- [ ] Strong passwords
+- [ ] SSL connections required
+- [ ] Regular backups
+- [ ] Access controls configured
 
 ### 5. MNEE Security
 - [ ] Private keys encrypted at rest
@@ -425,7 +439,7 @@ Setup alerts for:
 - [ ] Backup procedures in place
 
 ### Deployment
-- [ ] Smart contracts deployed and verified
+- [ ] Database migrated and seeded
 - [ ] Bot server configured and running
 - [ ] GitHub App installed on repositories
 - [ ] MNEE wallet funded
@@ -454,13 +468,16 @@ If issues occur:
 2. **Investigate Issues:**
    - Check logs: `pm2 logs bounty-hunter-bot`
    - Review error tracking
-   - Check smart contract state
+   - Check database state
 
 3. **Fix and Redeploy:**
    ```bash
    # Apply fixes
    git pull origin main
    npm install
+   
+   # Run migrations if needed
+   npm run db:migrate:prod
    
    # Restart services
    pm2 restart bounty-hunter-bot
@@ -490,10 +507,10 @@ If issues occur:
 
 As usage grows:
 
-1. **Database**: Consider MongoDB Atlas or sharding
+1. **Database**: Consider connection pooling and read replicas
 2. **API Server**: Add load balancer and multiple instances
-3. **Blockchain**: Implement transaction batching
-4. **MNEE**: Setup multiple wallets for parallel processing
+3. **MNEE**: Setup multiple wallets for parallel processing
+4. **Monitoring**: Implement distributed tracing
 
 ## Support
 

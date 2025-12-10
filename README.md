@@ -15,31 +15,30 @@ Bounty Hunter is a GitHub bot that automatically creates cryptocurrency bounties
 - ✅ **Automated Bounty Creation**: Failing tests trigger automatic bounty creation
 - 💰 **MNEE Stablecoin Payments**: Uses USD-backed MNEE for stable, predictable rewards
 - 📈 **Time-Based Escalation**: Bounties increase automatically over time if not claimed
-- 🔒 **Smart Contract Security**: All bounties are locked in Ethereum smart contracts
-- 🎯 **Instant Payment**: Successful fixes trigger automatic MNEE release
+- 🔒 **Transparent State Management**: All bounty states tracked in PostgreSQL
+- 🎯 **Instant Payment**: Successful fixes trigger automatic MNEE release via API
 - 📊 **Admin Dashboard**: Monitor active bounties and system metrics
 - 🔧 **Flexible Configuration**: Repository-specific settings and overrides
 
 ## 💡 How It Demonstrates Programmable Money
 
 1. **Automated Value Transfer**: MNEE moves automatically based on code events (test failures/fixes)
-2. **Smart Contract Escrow**: Transparent, trustless holding and release of funds
+2. **Transparent State Tracking**: PostgreSQL database provides full audit trail
 3. **Time-Based Logic**: Programmable escalation increases bounty value over time
 4. **Conditional Payments**: MNEE is only released when specific conditions are met (tests pass)
 
 ## 📋 How It Works
 
 1. **Test Failure Detection**: GitHub Actions detect when tests fail in your CI/CD pipeline
-2. **Bounty Creation**: The bot creates a GitHub issue and locks MNEE stablecoin in a smart contract
+2. **Bounty Creation**: The bot creates a GitHub issue and records the bounty in PostgreSQL
 3. **Developer Fixes**: A developer submits a PR that fixes the failing tests
 4. **Automatic Verification**: The system verifies tests are passing
-5. **Instant Payment**: MNEE stablecoin is automatically released to the developer
+5. **Instant Payment**: MNEE stablecoin is automatically sent via MNEE API
 
 ## 🏗️ Architecture
 
 ```
 bounty-hunter/
-├── contracts/          # Smart contracts (BountyEscrow for MNEE)  
 ├── bot/               # GitHub bot backend server
 ├── github-action/     # GitHub Action for CI/CD integration
 ├── dashboard/         # Admin monitoring dashboard
@@ -50,20 +49,18 @@ bounty-hunter/
 
 ### Technology Stack
 
-- **Blockchain**: Ethereum (using MNEE stablecoin: `0x8ccedbAe4916b79da7F3F612EfB2EB93A2bFD6cF`)
-- **Smart Contracts**: Solidity, Hardhat
-- **Backend**: Node.js, Express, MongoDB
+- **Backend**: Node.js, Express, PostgreSQL
+- **Payments**: MNEE API for direct stablecoin transfers
 - **GitHub Integration**: GitHub App, GitHub Actions
 - **Frontend**: HTML/CSS/JavaScript (admin dashboard)
 
 ## 🔧 Quick Start
 
-### 1. Deploy Smart Contracts
+### 1. Set Up Database
 
 ```bash
-cd contracts
-npm install
-npm run deploy
+# Make sure PostgreSQL is installed
+createdb bounty_hunter_bot
 ```
 
 ### 2. Set Up Bot Server
@@ -136,17 +133,17 @@ Unclaimed bounties automatically increase over time:
 
 ## 🔐 Security
 
-- Smart contracts are auditable and open source
-- Bot wallet only holds necessary MNEE funds
-- All transactions are transparent on-chain
+- All bounty states stored securely in PostgreSQL
+- MNEE payments use secure API authentication
 - GitHub webhook signatures are verified
 - API endpoints require authentication
+- Full audit trail of all transactions
 
 ## 📊 Admin Dashboard
 
 Access the admin dashboard to:
 - Monitor active bounties
-- View MNEE stablecoin balances
+- View MNEE wallet balance
 - Track contributor statistics
 - Export bounty data
 
@@ -160,6 +157,8 @@ We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) f
 - [Architecture](bounty-hunter-architecture.md) - System design overview
 - [Configuration](bounty-configuration-design.md) - Configuration options
 - [Escalation](bounty-escalation-design.md) - Escalation system details
+- [API Reference](docs/API_REFERENCE.md) - API documentation
+- [MNEE Integration](docs/MNEE_SDK_INTEGRATION.md) - MNEE payment details
 
 ## 🎯 Use Cases
 
@@ -172,8 +171,16 @@ We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) f
 
 - **Stable Value**: USD-backed means predictable bounty values
 - **Programmable**: Perfect for automated financial workflows
-- **Ethereum Native**: Works seamlessly with smart contracts
+- **Native API**: Direct payments without blockchain complexity
 - **Low Volatility**: Developers know exactly what they'll earn
+
+## 🚀 Benefits of Our Architecture
+
+- **No Gas Fees**: Direct MNEE API payments avoid blockchain transaction costs
+- **Instant Operations**: Database operations are immediate, no waiting for confirmations
+- **Simple Setup**: No smart contract deployment or blockchain configuration needed
+- **Full Transparency**: PostgreSQL provides complete audit trail
+- **Easy Updates**: Business logic changes don't require contract redeployment
 
 ## 📄 License
 
@@ -185,8 +192,8 @@ Built with ❤️ for the MNEE Hackathon.
 
 Special thanks to:
 - MNEE team for creating programmable money infrastructure
-- OpenZeppelin for smart contract libraries
 - GitHub for their amazing API and Actions platform
+- PostgreSQL for reliable state management
 
 ---
 ## 163jN4jSfLaAauZqL4znAHAgC9N5f4FeRr

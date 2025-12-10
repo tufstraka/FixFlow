@@ -3,9 +3,8 @@
 ## Table of Contents
 - [Common Issues](#common-issues)
 - [MNEE Payment Issues](#mnee-payment-issues)
-- [Smart Contract Issues](#smart-contract-issues)
-- [GitHub Integration Issues](#github-integration-issues)
 - [Database Issues](#database-issues)
+- [GitHub Integration Issues](#github-integration-issues)
 - [Debugging Tools](#debugging-tools)
 
 ## Common Issues
@@ -36,10 +35,10 @@
    node -e "console.log(require('dotenv').config())"
    ```
 
-4. **Check MongoDB connection:**
+4. **Check PostgreSQL connection:**
    ```bash
    # Test connection
-   mongosh "your-connection-string"
+   psql "postgresql://user:pass@host:5432/bounty_hunter"
    ```
 
 ### API Endpoints Not Responding
@@ -177,79 +176,98 @@ Invalid API key (401/403)
    const config = await mnee.config();
    ```
 
-## Smart Contract Issues
+## Database Issues
 
-### Contract Not Found
+### Connection Timeout
 
 **Error:**
 ```
-Contract not found at address 0x...
+Error: connect ETIMEDOUT
 ```
 
 **Solutions:**
 
-1. **Verify deployment:**
-   ```bash
-   # Check deployment file
-   cat deployments/[network]-deployment.json
+1. **Check connection string:**
+   ```javascript
+   // Test connection
+   const { Pool } = require('pg');
+   const pool = new Pool({
+     connectionString: process.env.DATABASE_URL
+   });
+   await pool.query('SELECT NOW()');
+   console.log('Connected successfully');
    ```
 
-2. **Verify on Etherscan:**
-   ```
-   https://etherscan.io/address/[CONTRACT_ADDRESS]
+2. **Check PostgreSQL service:**
+   ```bash
+   # Check if PostgreSQL is running
+   sudo systemctl status postgresql
+   
+   # Restart if needed
+   sudo systemctl restart postgresql
    ```
 
 3. **Check network:**
-   ```javascript
-   const network = await ethers.provider.getNetwork();
-   console.log('Connected to:', network.name);
+   ```bash
+   # Test connectivity
+   nc -zv your-database-host 5432
    ```
 
-### Bot Not Authorized
+### Database Performance
 
-**Error:**
-```
-Bot wallet is not authorized in BountyEscrow contract
-```
+**Symptoms:**
+- Slow queries
+- High memory usage
 
 **Solutions:**
 
-1. **Check authorization:**
-   ```javascript
-   const isAuthorized = await bountyEscrow.authorizedBots(botAddress);
-   console.log('Authorized:', isAuthorized);
-   ```
-
-2. **Authorize bot:**
-   ```javascript
-   // From contract owner account
-   const tx = await bountyEscrow.authorizeBot(botAddress);
-   await tx.wait();
-   ```
-
-### Gas Price Too High
-
-**Error:**
-```
-Transaction underpriced
-```
-
-**Solutions:**
-
-1. **Adjust gas settings:**
-   ```javascript
-   const gasPrice = await provider.getFeeData();
-   const maxGasPrice = ethers.parseUnits('50', 'gwei');
+1. **Check indexes:**
+   ```sql
+   -- List all indexes
+   SELECT schemaname, tablename, indexname 
+   FROM pg_indexes 
+   WHERE schemaname = 'public';
    
-   const tx = await contract.method({
-     gasPrice: gasPrice.gasPrice > maxGasPrice ? maxGasPrice : gasPrice.gasPrice
-   });
+   -- Create missing indexes
+   CREATE INDEX idx_bounties_state ON bounties(state);
+   CREATE INDEX idx_bounties_repository ON bounties(repository);
+   CREATE INDEX idx_bounties_created_at ON bounties(created_at);
    ```
 
-2. **Monitor gas prices:**
-   ```javascript
-   const gasPrice = await provider.getFeeData();
-   console.log('Current gas:', ethers.formatUnits(gasPrice.gasPrice, 'gwei'), 'gwei');
+2. **Analyze query performance:**
+   ```sql
+   -- Enable query timing
+   \timing
+   
+   -- Explain query plan
+   EXPLAIN ANALYZE SELECT * FROM bounties WHERE state = 'active';
+   ```
+
+3. **Vacuum database:**
+   ```sql
+   -- Clean up dead rows
+   VACUUM ANALYZE bounties;
+   ```
+
+### Migration Issues
+
+**Error:**
+```
+Migration failed: relation already exists
+```
+
+**Solutions:**
+
+1. **Check migration status:**
+   ```bash
+   npm run db:migrate:status
+   ```
+
+2. **Reset migrations (development only):**
+   ```bash
+   # WARNING: This will drop all data
+   npm run db:reset
+   npm run db:migrate
    ```
 
 ## GitHub Integration Issues
@@ -327,63 +345,6 @@ Resource not accessible by integration
    }
    ```
 
-## Database Issues
-
-### Connection Timeout
-
-**Error:**
-```
-MongoNetworkError: connection timed out
-```
-
-**Solutions:**
-
-1. **Check connection string:**
-   ```javascript
-   // Test connection
-   const { MongoClient } = require('mongodb');
-   const client = new MongoClient(process.env.MONGODB_URI);
-   await client.connect();
-   console.log('Connected successfully');
-   ```
-
-2. **Whitelist IP address:**
-   - Add server IP to MongoDB Atlas whitelist
-   - Or use 0.0.0.0/0 for development
-
-3. **Check network:**
-   ```bash
-   # Test connectivity
-   nc -zv your-mongodb-host 27017
-   ```
-
-### Database Performance
-
-**Symptoms:**
-- Slow queries
-- High memory usage
-
-**Solutions:**
-
-1. **Add indexes:**
-   ```javascript
-   // In Bounty model
-   bountySchema.index({ bountyId: 1 });
-   bountySchema.index({ repository: 1, status: 1 });
-   bountySchema.index({ createdAt: -1 });
-   ```
-
-2. **Monitor slow queries:**
-   ```javascript
-   mongoose.set('debug', true);
-   ```
-
-3. **Optimize queries:**
-   ```javascript
-   // Use lean() for read-only operations
-   const bounties = await Bounty.find({ status: 'active' }).lean();
-   ```
-
 ## Debugging Tools
 
 ### Enable Debug Logging
@@ -409,18 +370,19 @@ const mnee = new MNEE({
 });
 ```
 
-### Smart Contract Debugging
+### Database Query Debugging
 
 ```javascript
-// Listen to all contract events
-bountyEscrow.on('*', (event) => {
-  console.log('Contract event:', event);
+// Log all SQL queries
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  log: (msg) => console.log(msg)
 });
 
-// Get transaction receipt for debugging
-const receipt = await tx.wait();
-console.log('Gas used:', receipt.gasUsed.toString());
-console.log('Events:', receipt.logs);
+// Or use event listeners
+pool.on('query', (query) => {
+  console.log('Query:', query.text, query.values);
+});
 ```
 
 ### HTTP Request Debugging
@@ -434,15 +396,6 @@ app.use((req, res, next) => {
     query: req.query
   });
   next();
-});
-```
-
-### Database Query Debugging
-
-```javascript
-// Enable MongoDB query logging
-mongoose.set('debug', (collectionName, method, query, doc) => {
-  console.log(`${collectionName}.${method}`, JSON.stringify(query), doc);
 });
 ```
 
@@ -502,7 +455,10 @@ git checkout [previous-commit-hash]
 # 2. Reinstall dependencies
 npm install
 
-# 3. Restart services
+# 3. Run migrations if needed
+npm run db:migrate
+
+# 4. Restart services
 pm2 restart bounty-hunter-bot
 ```
 
@@ -510,10 +466,10 @@ pm2 restart bounty-hunter-bot
 
 ```bash
 # 1. Export current data
-mongodump --uri="mongodb://..." --out=backup/
+pg_dump -h localhost -U user -d bounty_hunter > backup.sql
 
 # 2. Restore from backup
-mongorestore --uri="mongodb://..." backup/
+psql -h localhost -U user -d bounty_hunter < backup.sql
 ```
 
 ## Getting Help
@@ -537,3 +493,30 @@ If you're still experiencing issues:
 4. **Contact support:**
    - Discord: https://discord.gg/bounty-hunter
    - Email: support@bounty-hunter.io
+
+## Common Environment Variables
+
+Ensure all required environment variables are set:
+
+```env
+# Server
+PORT=3000
+NODE_ENV=production
+
+# Database
+DATABASE_URL=postgresql://user:pass@host:5432/db
+
+# GitHub
+GITHUB_APP_ID=123456
+GITHUB_APP_PRIVATE_KEY="-----BEGIN RSA PRIVATE KEY-----..."
+GITHUB_WEBHOOK_SECRET=secret
+
+# MNEE
+MNEE_ENVIRONMENT=production
+MNEE_API_KEY=your_api_key
+MNEE_BOT_ADDRESS=1YourAddress...
+MNEE_BOT_WIF=LYourPrivateKey...
+
+# Security
+JWT_SECRET=secret
+API_KEY=key

@@ -275,20 +275,18 @@ async processBountyPayment(bounty, solverAddress) {
       bounty.bountyId
     );
     
-    // 2. Update smart contract with payment TX ID
-    await contractService.claimBounty(
+    // 2. Update bounty in database
+    await bountyService.claimBounty(
       bounty.bountyId,
       solverAddress,
       payment.txid
     );
     
-    // 3. Update database
-    await Bounty.findByIdAndUpdate(bounty._id, {
-      status: 'claimed',
-      solver: solverAddress,
-      paymentTxId: payment.txid,
-      claimedAt: new Date()
-    });
+    // 3. Update database record
+    await db.query(
+      'UPDATE bounties SET state = $1, solver_address = $2, payment_tx_id = $3, claimed_at = $4 WHERE bounty_id = $5',
+      ['claimed', solverAddress, payment.txid, new Date(), bounty.bountyId]
+    );
     
     // 4. Post GitHub comment
     await githubService.postComment(bounty.repository, bounty.issueId, 
@@ -328,12 +326,11 @@ async processBatchPayments(bounties) {
   // Wait for confirmation
   const status = await this.waitForConfirmation(response.ticketId);
   
-  // Update all bounties
+  // Update all bounties in database
   for (const bounty of bounties) {
-    await contractService.claimBounty(
-      bounty.bountyId,
-      bounty.solverAddress,
-      status.tx_id
+    await db.query(
+      'UPDATE bounties SET state = $1, solver_address = $2, payment_tx_id = $3, claimed_at = $4 WHERE bounty_id = $5',
+      ['claimed', bounty.solverAddress, status.tx_id, new Date(), bounty.bountyId]
     );
   }
   
@@ -440,34 +437,39 @@ router.post('/mnee-status', async (req, res) => {
   try {
     const { ticketId, status, tx_id, errors } = req.body;
     
-    // Find bounty by ticket ID
-    const bounty = await Bounty.findOne({ paymentTicketId: ticketId });
+    // Find bounty by payment ticket ID
+    const bounty = await db.query(
+      'SELECT * FROM bounties WHERE payment_ticket_id = $1',
+      [ticketId]
+    );
     
-    if (!bounty) {
+    if (!bounty.rows[0]) {
       return res.status(404).json({ error: 'Bounty not found' });
     }
     
     // Update based on status
     if (status === 'SUCCESS' || status === 'MINED') {
-      bounty.paymentStatus = 'confirmed';
-      bounty.paymentTxId = tx_id;
-      await bounty.save();
+      await db.query(
+        'UPDATE bounties SET payment_status = $1, payment_tx_id = $2 WHERE id = $3',
+        ['confirmed', tx_id, bounty.rows[0].id]
+      );
       
       // Notify on GitHub
       await githubService.postComment(
-        bounty.repository,
-        bounty.issueId,
+        bounty.rows[0].repository,
+        bounty.rows[0].issue_id,
         `✅ Payment confirmed! TX: ${tx_id}`
       );
     } else if (status === 'FAILED') {
-      bounty.paymentStatus = 'failed';
-      bounty.paymentErrors = errors;
-      await bounty.save();
+      await db.query(
+        'UPDATE bounties SET payment_status = $1, payment_errors = $2 WHERE id = $3',
+        ['failed', errors, bounty.rows[0].id]
+      );
       
       // Notify failure
       await githubService.postComment(
-        bounty.repository,
-        bounty.issueId,
+        bounty.rows[0].repository,
+        bounty.rows[0].issue_id,
         `❌ Payment failed. Please contact support.`
       );
     }
@@ -545,5 +547,5 @@ async function testPaymentFlow() {
 
 - [MNEE SDK Documentation](https://docs.mnee.io)
 - [Bounty Hunter Architecture](./bounty-hunter-architecture.md)
-- [Smart Contract Integration](./SMART_CONTRACT_GUIDE.md)
+- [Database Schema](./DATABASE_SCHEMA.md)
 - [GitHub Integration](./GITHUB_INTEGRATION.md)

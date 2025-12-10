@@ -44,8 +44,8 @@ Creates a new bounty for a failed test.
 {
   "success": true,
   "bountyId": 1,
-  "transactionHash": "0x123...",
-  "contractAddress": "0xabc..."
+  "amount": 50,
+  "maxAmount": 150
 }
 ```
 
@@ -65,13 +65,13 @@ Retrieves details for a specific bounty.
   "initialAmount": 50,
   "currentAmount": 60,
   "maxAmount": 150,
-  "status": "active",
+  "state": "active",
   "createdAt": "2024-01-01T00:00:00Z",
   "lastEscalation": "2024-01-02T00:00:00Z",
   "escalationCount": 1,
   "claimed": false,
   "solver": null,
-  "transactionHash": "0x123..."
+  "paymentTxId": null
 }
 ```
 
@@ -95,7 +95,7 @@ Lists all bounties for a specific repository.
       "repository": "owner/repo",
       "issueId": 123,
       "currentAmount": 60,
-      "status": "active",
+      "state": "active",
       "createdAt": "2024-01-01T00:00:00Z"
     }
   ],
@@ -127,7 +127,7 @@ Claims a bounty after tests pass. This is typically called internally by the web
 {
   "success": true,
   "amount": 60,
-  "transactionHash": "0xdef...",
+  "paymentTxId": "mnee_tx_123abc",
   "solver": "1MNEEAddress..."
 }
 ```
@@ -144,7 +144,7 @@ Manually escalates a bounty amount.
   "success": true,
   "oldAmount": 50,
   "newAmount": 60,
-  "transactionHash": "0xghi..."
+  "escalationCount": 1
 }
 ```
 
@@ -235,10 +235,15 @@ Retrieves overall system metrics.
     "success_rate": "83.33%"
   },
   "tokens": {
-    "locked": 2500,
-    "claimed": 12500,
+    "totalPaid": 12500,
+    "pendingBounties": 2500,
     "wallet_balance": 5000.75,
     "wallet_address": "1BotWalletAddress..."
+  },
+  "database": {
+    "bountyCount": 150,
+    "totalValue": 15000,
+    "avgBountyValue": 100
   },
   "system": {
     "uptime": 864000,
@@ -259,7 +264,7 @@ Lists all bounties with admin details.
 **GET** `/api/admin/bounties`
 
 #### Query Parameters
-- `status`: Filter by status
+- `state`: Filter by state
 - `repository`: Filter by repository
 - `page`: Page number
 - `limit`: Items per page
@@ -278,8 +283,8 @@ Gets detailed statistics for each repository.
     "total": 50,
     "active": 5,
     "claimed": 45,
-    "totalLocked": 250,
-    "totalClaimed": 2250,
+    "totalPaid": 2250,
+    "pendingValue": 250,
     "success_rate": 90
   }
 ]
@@ -354,7 +359,7 @@ Exports bounty data in JSON or CSV format.
 
 #### Query Parameters
 - `format`: Export format (`json` or `csv`)
-- `status`: Filter by status
+- `state`: Filter by state
 
 ## Error Responses
 

@@ -8,33 +8,37 @@ This guide will walk you through setting up the Bounty Hunter system for your Gi
 
 - Node.js 18+ and npm
 - GitHub account with admin access to target repositories
-- Ethereum wallet with ETH on Sepolia testnet
-- MongoDB instance (local or cloud)
+- PostgreSQL database (local or cloud)
+- MNEE account with API credentials
 
-## Step 1: Deploy Smart Contracts
+## Step 1: Set Up PostgreSQL Database
 
-### 1.1 Configure Environment
+### 1.1 Install PostgreSQL
+
+For Ubuntu/Debian:
+```bash
+sudo apt update
+sudo apt install postgresql postgresql-contrib
+```
+
+For macOS:
+```bash
+brew install postgresql
+brew services start postgresql
+```
+
+### 1.2 Create Database
 
 ```bash
-cd bounty-hunter/contracts
-cp .env.example .env
-```
+# Login to PostgreSQL
+sudo -u postgres psql
 
-Edit `.env` with your details:
+# Create database and user
+CREATE DATABASE bounty_hunter;
+CREATE USER bounty_user WITH ENCRYPTED PASSWORD 'your_password';
+GRANT ALL PRIVILEGES ON DATABASE bounty_hunter TO bounty_user;
+\q
 ```
-SEPOLIA_RPC_URL=https://rpc.sepolia.dev
-PRIVATE_KEY=your_deployer_private_key
-ETHERSCAN_API_KEY=your_etherscan_api_key
-```
-
-### 1.2 Install Dependencies and Deploy
-
-```bash
-npm install
-npm run deploy
-```
-
-Save the deployed contract addresses from the output.
 
 ## Step 2: Set Up GitHub App
 
@@ -86,33 +90,38 @@ PORT=3000
 NODE_ENV=production
 
 # Database
-MONGODB_URI=mongodb://localhost:27017/bounty-hunter
-
-# Ethereum
-SEPOLIA_RPC_URL=https://rpc.sepolia.dev
-PRIVATE_KEY=bot_wallet_private_key
-MNEE_TOKEN_ADDRESS=deployed_token_address
-BOUNTY_ESCROW_ADDRESS=deployed_escrow_address
+DATABASE_URL=postgresql://bounty_user:your_password@localhost:5432/bounty_hunter
 
 # GitHub App
 GITHUB_APP_ID=your_app_id
 GITHUB_APP_PRIVATE_KEY_PATH=./github-app-private-key.pem
 GITHUB_WEBHOOK_SECRET=your_webhook_secret
 
+# MNEE
+MNEE_ENVIRONMENT=production
+MNEE_API_KEY=your_production_api_key
+MNEE_BOT_ADDRESS=1YourMNEEWalletAddress...
+MNEE_BOT_WIF=LYourPrivateKeyInWIFFormat...
+
 # Security
 JWT_SECRET=generate_secure_secret
 API_KEY=generate_secure_api_key
 ```
 
-### 3.2 Fund Bot Wallet
+### 3.2 Fund MNEE Wallet
 
-1. Transfer ETH to bot wallet for gas fees
-2. Transfer MNEE tokens to bot wallet for bounties
+1. Transfer MNEE tokens to bot wallet for bounty payments
+2. Recommended: Start with 500-1000 MNEE
 
 ### 3.3 Install and Start
 
 ```bash
 npm install
+
+# Initialize database
+npm run db:init
+
+# Start server
 npm start
 ```
 
@@ -214,13 +223,18 @@ describe('Bounty Test', () => {
 2. Wait for CI to fail
 3. Check that:
    - GitHub issue is created
-   - Bounty is locked on blockchain
+   - Bounty is stored in PostgreSQL
    - Bot posts confirmation comment
 
 ### 5.3 Fix and Claim
 
 1. Create a PR fixing the test
-2. Once merged and tests pass:
+2. Add your MNEE address in PR comment:
+   ```
+   Fixed the failing test! 🎉
+   MNEE: 1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa
+   ```
+3. Once merged and tests pass:
    - Bounty is released to PR author
    - Issue is closed
 
@@ -230,15 +244,22 @@ describe('Bounty Test', () => {
 
 1. Check bot server logs
 2. Verify GitHub App permissions
-3. Ensure bot wallet has funds
+3. Ensure bot wallet has MNEE funds
 4. Check API key in GitHub Action
 
-### Transaction Failures
+### Payment Failures
 
-1. Verify contract addresses in `.env`
-2. Check bot wallet ETH balance
-3. Ensure MNEE allowance is set
-4. Review gas price settings
+1. Verify MNEE credentials in `.env`
+2. Check bot wallet balance
+3. Ensure valid MNEE address in PR
+4. Review payment logs
+
+### Database Connection Issues
+
+1. Check PostgreSQL is running
+2. Verify connection string
+3. Ensure database exists
+4. Check user permissions
 
 ### Escalation Not Working
 
@@ -253,7 +274,7 @@ describe('Bounty Test', () => {
 2. **API Keys**: Rotate regularly
 3. **Webhook Secret**: Use strong random values
 4. **Bot Wallet**: Only fund with necessary amounts
-5. **Contract Access**: Limit authorized bots
+5. **Database**: Use strong passwords and SSL connections
 
 ## Monitoring
 
@@ -263,11 +284,17 @@ describe('Bounty Test', () => {
 - Metrics endpoint: `GET /api/admin/metrics`
 - Logs: Check `combined.log` and `error.log`
 
-### Blockchain Monitoring
+### Database Monitoring
 
-- Etherscan: Track transactions
-- Contract events: Monitor bounty activity
-- Wallet balance: Set up alerts
+- Query performance: Monitor slow queries
+- Connection pool: Check active connections
+- Disk usage: Monitor database size
+
+### MNEE Wallet Monitoring
+
+- Balance alerts: Set up low balance notifications
+- Transaction history: Track all payments
+- Failed payments: Monitor and retry
 
 ## Support
 
