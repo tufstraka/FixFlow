@@ -11,6 +11,7 @@ import bountyRoutes from './routes/bounty.js';
 import webhookRoutes from './routes/webhook.js';
 import adminRoutes from './routes/admin.js';
 import githubRoutes from './routes/github.js';
+import userRoutes from './routes/user.js';
 import escalationService from './services/escalation.js';
 import bountyService from './services/bountyService.js';
 import mneeService from './services/mnee.js';
@@ -38,6 +39,7 @@ app.get('/health', (req, res) => {
 // API Routes
 app.use('/api/bounties', authMiddleware, bountyRoutes);
 app.use('/api/admin', authMiddleware, adminRoutes);
+app.use('/api/user', userRoutes); // User authentication and profile routes
 app.use('/webhook', webhookRoutes); // GitHub webhooks don't use our auth
 app.use('/github', githubRoutes); // GitHub App OAuth and installation callbacks
 

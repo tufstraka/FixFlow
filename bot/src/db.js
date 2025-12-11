@@ -70,8 +70,52 @@ export const initDb = async () => {
 
             CREATE INDEX IF NOT EXISTS idx_github_installations_installation_id ON github_installations(installation_id);
             CREATE INDEX IF NOT EXISTS idx_github_installations_account_login ON github_installations(account_login);
+
+            -- Users table
+            CREATE TABLE IF NOT EXISTS users (
+                id SERIAL PRIMARY KEY,
+                github_id BIGINT UNIQUE NOT NULL,
+                github_login VARCHAR(255) UNIQUE NOT NULL,
+                email VARCHAR(255),
+                name VARCHAR(255),
+                avatar_url TEXT,
+                role VARCHAR(50) DEFAULT 'user',
+                mnee_address VARCHAR(255),
+                access_token TEXT,
+                refresh_token TEXT,
+                token_expires_at TIMESTAMP,
+                total_earned NUMERIC DEFAULT 0,
+                bounties_claimed INTEGER DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_users_github_id ON users(github_id);
+            CREATE INDEX IF NOT EXISTS idx_users_github_login ON users(github_login);
+            CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
+
+            -- User sessions table
+            CREATE TABLE IF NOT EXISTS user_sessions (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+                session_token VARCHAR(255) UNIQUE NOT NULL,
+                expires_at TIMESTAMP NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_user_sessions_token ON user_sessions(session_token);
+            CREATE INDEX IF NOT EXISTS idx_user_sessions_user_id ON user_sessions(user_id);
+
+            -- Add user_id to bounties table if not exists
+            DO $$
+            BEGIN
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                    WHERE table_name='bounties' AND column_name='creator_id') THEN
+                    ALTER TABLE bounties ADD COLUMN creator_id INTEGER REFERENCES users(id);
+                END IF;
+            END $$;
         `);
-        logger.info('Database initialized - bounties and github_installations tables created/verified');
+        logger.info('Database initialized - all tables created/verified');
     } catch (err) {
         logger.error('Failed to initialize database:', err);
         throw err;

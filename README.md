@@ -1,6 +1,6 @@
 # FixFlow
 
-## The Problem We Set Out to Solve
+## The problem we set out to solve
 
 Every day, thousands of open-source projects that power the modern internet go unmaintained. Bugs pile up. Issues sit unanswered. The developers who once poured their hearts into these projects have moved on to new jobs, new responsibilities, new lives. The code remains, used by millions, but the people who understand it best are no longer there.
 
@@ -8,7 +8,7 @@ Meanwhile, talented developers around the world have time and skills to contribu
 
 We built FixFlow because we believe there's a better way.
 
-## What If Bug Fixes Paid for Themselves?
+## What if bug fixes paid for themselves?
 
 Imagine a world where open-source maintenance is sustainable. Where a failing test doesn't just create anxiety, it creates opportunity. Where developers can earn real money for solving real problems, and project maintainers don't have to beg for help.
 
@@ -21,7 +21,7 @@ FixFlow makes this possible by automating the entire process:
 
 This isn't just about money. It's about respect. Respect for the time developers invest in understanding complex codebases. Respect for the maintainers who need help but can't afford to hire. Respect for the invisible infrastructure that holds the digital world together.
 
-## How It Actually Works
+## How it actually works
 
 The technical implementation is straightforward, but what it enables is significant.
 
@@ -31,7 +31,7 @@ Here's where it gets interesting: if nobody claims the bounty right away, it aut
 
 When a developer submits a pull request that fixes the failing tests, FixFlow verifies the fix and releases payment directly to their wallet. The entire process, from test failure to payment, can happen without any human intervention.
 
-## The Technology Behind It
+## The technology behind it
 
 FixFlow is built on a few key pieces:
 
@@ -139,7 +139,7 @@ MNEE solves this by being a stablecoin. Its value is pegged to the US dollar. Wh
 
 MNEE also provides a clean API for programmatic payments. No blockchain transactions, no gas fees, no wallet complications. Just simple API calls that move money instantly.
 
-## The Bigger Picture
+## The bigger picture
 
 FixFlow started as a hackathon project, but the problem it addresses is real and urgent.
 
@@ -172,8 +172,6 @@ See our Contributing Guide for details on how to get involved.
 MIT License. Use this however you want.
 
 ---
-
-## 163jN4jSfLaAauZqL4znAHAgC9N5f4FeRr
 
 Built for the MNEE Hackathon. Built because we care about open source.
 

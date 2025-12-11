@@ -1,2 +1,19 @@
 node_modules
 
+.env
+.env.local
+.env.*.local
+.bounty-hunter-bot.pem
+.DS_Store
+.vscode
+dist
+build
+
+frontend/.next
+frontend/out
+frontend/node_modules
+frontend/.env
+frontend/.env.local
+frontend/.env.*.local
+
+
