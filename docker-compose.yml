@@ -1,0 +1,82 @@
+version: '3.8'
+
+services:
+  bot:
+    build:
+      context: .
+      dockerfile: bot/Dockerfile
+    ports:
+      - "${BOT_PORT:-3000}:3000"
+    environment:
+      - NODE_ENV=${NODE_ENV:-production}
+      - PORT=3000
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-fixflow}:${POSTGRES_PASSWORD:-fixflow_password}@db:5432/${POSTGRES_DB:-fixflow}
+      - GITHUB_APP_ID=${GITHUB_APP_ID}
+      - GITHUB_APP_PRIVATE_KEY=${GITHUB_APP_PRIVATE_KEY}
+      - GITHUB_WEBHOOK_SECRET=${GITHUB_WEBHOOK_SECRET}
+      - MNEE_API_KEY=${MNEE_API_KEY}
+      - MNEE_ENVIRONMENT=${MNEE_ENVIRONMENT:-sandbox}
+      - MNEE_WALLET_WIF=${MNEE_WALLET_WIF}
+      - MNEE_WEBHOOK_SECRET=${MNEE_WEBHOOK_SECRET}
+      - API_KEY_HASH=${API_KEY_HASH}
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - fixflow-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  dashboard:
+    build:
+      context: ./dashboard
+      dockerfile: Dockerfile
+    ports:
+      - "${DASHBOARD_PORT:-3001}:3001"
+    environment:
+      - NODE_ENV=${NODE_ENV:-production}
+      - NEXT_PUBLIC_API_URL=http://bot:3000
+    depends_on:
+      - bot
+    restart: unless-stopped
+    networks:
+      - fixflow-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  db:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-fixflow}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-fixflow_password}
+      - POSTGRES_DB=${POSTGRES_DB:-fixflow}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    restart: unless-stopped
+    networks:
+      - fixflow-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-fixflow} -d ${POSTGRES_DB:-fixflow}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  fixflow-network:
+    driver: bridge

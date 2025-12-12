@@ -1,0 +1,42 @@
+{
+  "name": "fixflow",
+  "version": "1.0.0",
+  "description": "Automated bounty system for open-source bug fixes",
+  "private": true,
+  "workspaces": [
+    "bot",
+    "action",
+    "shared"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace=bot",
+    "build": "npm run build --workspaces",
+    "start": "npm run start --workspace=bot",
+    "lint": "eslint . --ext .ts",
+    "lint:fix": "eslint . --ext .ts --fix",
+    "format": "prettier --write \"**/*.{ts,json,md,yml}\"",
+    "format:check": "prettier --check \"**/*.{ts,json,md,yml}\"",
+    "test": "npm run test --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "db:generate": "npm run db:generate --workspace=bot",
+    "db:migrate": "npm run db:migrate --workspace=bot",
+    "db:push": "npm run db:push --workspace=bot",
+    "db:studio": "npm run db:studio --workspace=bot",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:build": "docker-compose build"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "@typescript-eslint/eslint-plugin": "^6.13.0",
+    "@typescript-eslint/parser": "^6.13.0",
+    "eslint": "^8.55.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-import": "^2.29.0",
+    "prettier": "^3.1.0",
+    "typescript": "^5.3.2"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

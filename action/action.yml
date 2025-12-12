@@ -1,0 +1,35 @@
+name: 'FixFlow Bounty Creator'
+description: 'Creates bounties for failing tests automatically'
+author: 'FixFlow'
+
+branding:
+  icon: 'award'
+  color: 'green'
+
+inputs:
+  bot_server_url:
+    description: 'URL of the FixFlow bot server'
+    required: true
+  bot_api_key:
+    description: 'API key for authenticating with the bot server'
+    required: true
+  bounty_amount:
+    description: 'Default bounty amount in MNEE (can be overridden by .bounty-hunter.yml)'
+    required: false
+    default: '50'
+  github_token:
+    description: 'GitHub token for API access'
+    required: true
+    default: ${{ github.token }}
+
+outputs:
+  bounty_id:
+    description: 'ID of the created bounty'
+  bounty_amount:
+    description: 'Amount of the created bounty'
+  issue_url:
+    description: 'URL of the created GitHub issue'
+
+runs:
+  using: 'node20'
+  main: 'dist/index.js'

@@ -1,0 +1,156 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Repository that has FixFlow installed
+model Repository {
+  id             String   @id @default(uuid())
+  githubId       String   @unique @map("github_id")
+  owner          String
+  name           String
+  fullName       String   @map("full_name")
+  installationId String   @map("installation_id")
+  isActive       Boolean  @default(true) @map("is_active")
+  config         Json?    // RepositoryConfig stored as JSON
+  walletAddress  String?  @map("wallet_address")
+  walletWif      String?  @map("wallet_wif") // Encrypted WIF for repository wallet
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  bounties Bounty[]
+
+  @@unique([owner, name])
+  @@map("repositories")
+}
+
+// Bounty status enum
+enum BountyStatus {
+  PENDING
+  ACTIVE
+  CLAIMED
+  ESCALATED
+  COMPLETED
+  EXPIRED
+  CANCELLED
+}
+
+// Bounty severity enum
+enum BountySeverity {
+  CRITICAL
+  HIGH
+  MEDIUM
+  LOW
+}
+
+// Bounty for a failing test
+model Bounty {
+  id               String         @id @default(uuid())
+  repositoryId     String         @map("repository_id")
+  githubIssueId    String?        @map("github_issue_id")
+  githubIssueNumber Int?          @map("github_issue_number")
+  workflowRunId    String         @map("workflow_run_id")
+  workflowName     String         @map("workflow_name")
+  status           BountyStatus   @default(PENDING)
+  severity         BountySeverity @default(MEDIUM)
+  initialAmount    Decimal        @map("initial_amount") @db.Decimal(18, 5)
+  currentAmount    Decimal        @map("current_amount") @db.Decimal(18, 5)
+  currency         String         @default("MNEE")
+  testName         String?        @map("test_name")
+  failureDetails   String?        @map("failure_details") @db.Text
+  claimedByPr      String?        @map("claimed_by_pr")
+  claimedByPrNumber Int?          @map("claimed_by_pr_number")
+  claimedByUser    String?        @map("claimed_by_user")
+  claimedByWallet  String?        @map("claimed_by_wallet")
+  createdAt        DateTime       @default(now()) @map("created_at")
+  escalatedAt      DateTime?      @map("escalated_at")
+  claimedAt        DateTime?      @map("claimed_at")
+  completedAt      DateTime?      @map("completed_at")
+  expiresAt        DateTime?      @map("expires_at")
+
+  repository Repository  @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  payments   Payment[]
+  auditLogs  AuditLog[]
+
+  @@index([repositoryId])
+  @@index([status])
+  @@index([workflowRunId])
+  @@index([githubIssueNumber])
+  @@map("bounties")
+}
+
+// Payment status enum
+enum PaymentStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+// Payment for a completed bounty
+model Payment {
+  id               String        @id @default(uuid())
+  bountyId         String        @map("bounty_id")
+  recipientAddress String        @map("recipient_address")
+  amount           Decimal       @db.Decimal(18, 5)
+  currency         String        @default("MNEE")
+  mneeTicketId     String?       @map("mnee_ticket_id")
+  mneeTxId         String?       @map("mnee_tx_id")
+  status           PaymentStatus @default(PENDING)
+  errorMessage     String?       @map("error_message") @db.Text
+  createdAt        DateTime      @default(now()) @map("created_at")
+  processedAt      DateTime?     @map("processed_at")
+  completedAt      DateTime?     @map("completed_at")
+
+  bounty Bounty @relation(fields: [bountyId], references: [id], onDelete: Cascade)
+
+  @@index([bountyId])
+  @@index([status])
+  @@index([mneeTicketId])
+  @@map("payments")
+}
+
+// Audit log event type enum
+enum AuditEventType {
+  BOUNTY_CREATED
+  BOUNTY_ACTIVATED
+  BOUNTY_CLAIMED
+  BOUNTY_UNCLAIMED
+  BOUNTY_ESCALATED
+  BOUNTY_COMPLETED
+  BOUNTY_EXPIRED
+  BOUNTY_CANCELLED
+  PAYMENT_INITIATED
+  PAYMENT_COMPLETED
+  PAYMENT_FAILED
+  REPOSITORY_INSTALLED
+  REPOSITORY_UNINSTALLED
+  CONFIG_UPDATED
+}
+
+// Audit log for tracking all changes
+model AuditLog {
+  id        String         @id @default(uuid())
+  bountyId  String?        @map("bounty_id")
+  eventType AuditEventType @map("event_type")
+  eventData Json           @map("event_data")
+  actor     String         // GitHub username or 'system'
+  actorType String         @default("user") @map("actor_type") // 'user', 'system', 'webhook'
+  ipAddress String?        @map("ip_address")
+  createdAt DateTime       @default(now()) @map("created_at")
+
+  bounty Bounty? @relation(fields: [bountyId], references: [id], onDelete: SetNull)
+
+  @@index([bountyId])
+  @@index([eventType])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
