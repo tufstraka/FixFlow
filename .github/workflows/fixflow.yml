@@ -28,7 +28,7 @@ jobs:
       # Only create bounty if tests failed
       - name: Create Bounty for Failed Tests
         if: steps.test.outcome == 'failure'
-        uses: tufstraka/fixflow/github-action@main
+        uses: tufstraka/Bounty-Hunter/github-action@main
         id: bounty
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
