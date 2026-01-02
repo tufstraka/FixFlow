@@ -42,9 +42,9 @@ export default function DashboardPage() {
     if (isDemo) {
       await simulateDelay(500);
       setStats(MOCK_STATS);
-      // Get bounties claimed by the current demo user
+      // Get bounties claimed by the current demo user (solver field)
       const userBounties = MOCK_BOUNTIES.filter(b =>
-        b.claimedBy === user?.githubLogin || b.status === 'active'
+        b.solver === user?.githubLogin || b.status === 'active'
       ).slice(0, 10);
       setBounties(userBounties as Bounty[]);
       setLoadingData(false);
