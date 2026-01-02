@@ -5,6 +5,12 @@ on:
     workflows: ["Tests"]
     types: [completed]
 
+# Required permissions for workflow_run triggered workflows
+permissions:
+  contents: read
+  issues: write
+  actions: read
+
 jobs:
   create-bounty:
     name: Create FixFlow Bounty
@@ -44,3 +50,4 @@ jobs:
           echo "1. Fixing the failing test"
           echo "2. Submitting a PR with 'MNEE: their_wallet_address'"
           echo "3. Getting the PR merged"
+
