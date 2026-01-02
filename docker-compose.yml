@@ -2,8 +2,6 @@
 # Orchestrates the bot and frontend services
 # Uses external database (AWS RDS)
 
-version: '3.8'
-
 services:
   # ============================================
   # Bot Backend Service
@@ -15,7 +13,7 @@ services:
     container_name: fixflow-bot
     restart: unless-stopped
     env_file:
-      - .env
+      - ./bot/.env
     ports:
       - "3000:3000"
     healthcheck:
@@ -34,11 +32,12 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-https://fixflow-api.locsafe.org}
     container_name: fixflow-frontend
     restart: unless-stopped
-    env_file:
-      - .env
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-https://fixflow-api.locsafe.org}
     depends_on:
       - bot
     ports:
