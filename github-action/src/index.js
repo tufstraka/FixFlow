@@ -69,7 +69,17 @@ Respond ONLY with the JSON object, no additional text.`;
     const responseBody = JSON.parse(new TextDecoder().decode(response.body));
     
     // Extract the content from Claude's response
-    const analysisText = responseBody.content[0].text;
+    let analysisText = responseBody.content[0].text;
+    
+    // Sanitize the response - remove control characters that break JSON parsing
+    // Remove characters 0x00-0x1F except tab (0x09), newline (0x0A), carriage return (0x0D)
+    analysisText = analysisText.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '');
+    
+    // Try to extract JSON from the response (in case there's extra text)
+    const jsonMatch = analysisText.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      analysisText = jsonMatch[0];
+    }
     
     // Parse the JSON response
     const analysis = JSON.parse(analysisText);
