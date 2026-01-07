@@ -5,6 +5,7 @@ import Bounty from '../models/Bounty.js';
 import db from '../db.js';
 import mneeService from '../services/mnee.js';
 import escalationService from '../services/escalation.js';
+import ethereumPaymentService from '../services/ethereumPayment.js';
 import User from '../models/User.js';
 
 /**
@@ -63,42 +64,84 @@ router.use(adminAuth);
 // Get system metrics
 router.get('/metrics', async (req, res) => {
   try {
+    // Check if blockchain mode is enabled
+    const useBlockchain = process.env.USE_BLOCKCHAIN === 'true';
+    
+    // Fetch all metrics in parallel
+    const promises = [
+      Bounty.countDocuments(),
+      Bounty.countDocuments({ status: 'active' }),
+      Bounty.countDocuments({ status: 'claimed' }),
+      db.query("SELECT SUM(current_amount) as total FROM bounties WHERE status = 'active'"),
+      db.query("SELECT SUM(claimed_amount) as total FROM bounties WHERE status = 'claimed'"),
+      db.query("SELECT COUNT(*) as count FROM bounties WHERE funding_source = 'owner' AND on_chain_bounty_id IS NOT NULL"),
+    ];
+
+    // Add escrow stats if blockchain mode is enabled
+    let escrowStats = null;
+    if (useBlockchain) {
+      try {
+        escrowStats = await ethereumPaymentService.getEscrowStats();
+      } catch (escrowError) {
+        logger.warn('Failed to get escrow stats:', escrowError.message);
+        escrowStats = { enabled: false, error: escrowError.message };
+      }
+    }
+
+    // Get MNEE service balance (legacy)
+    let mneeBalance = { balance: 0, address: 'N/A' };
+    try {
+      mneeBalance = await mneeService.getBalance();
+    } catch (mneeError) {
+      logger.warn('Failed to get MNEE balance:', mneeError.message);
+    }
+
     const [
       totalBounties,
       activeBounties,
       claimedBounties,
       totalLockedRes,
       totalClaimedRes,
-      walletBalance
-    ] = await Promise.all([
-      Bounty.countDocuments(),
-      Bounty.countDocuments({ status: 'active' }),
-      Bounty.countDocuments({ status: 'claimed' }),
-      db.query("SELECT SUM(current_amount) as total FROM bounties WHERE status = 'active'"),
-      db.query("SELECT SUM(claimed_amount) as total FROM bounties WHERE status = 'claimed'"),
-      mneeService.getBalance()
-    ]);
+      onChainBountiesRes
+    ] = await Promise.all(promises);
 
     const totalLocked = totalLockedRes.rows[0]?.total || 0;
     const totalClaimed = totalClaimedRes.rows[0]?.total || 0;
+    const onChainBounties = parseInt(onChainBountiesRes.rows[0]?.count || 0);
 
     const metrics = {
       bounties: {
         total: totalBounties,
         active: activeBounties,
         claimed: claimedBounties,
+        on_chain: onChainBounties,
         success_rate: totalBounties > 0 ? (claimedBounties / totalBounties * 100).toFixed(2) + '%' : '0%'
       },
       tokens: {
+        // Database totals (from bounties table)
         locked: parseFloat(totalLocked),
         claimed: parseFloat(totalClaimed),
-        wallet_balance: walletBalance.balance,
-        wallet_address: walletBalance.address
+        // Legacy MNEE SDK wallet
+        wallet_balance: mneeBalance.balance,
+        wallet_address: mneeBalance.address
+      },
+      // On-chain escrow contract stats
+      escrow: escrowStats ? {
+        enabled: escrowStats.enabled,
+        contract_address: escrowStats.escrowAddress || null,
+        balance: escrowStats.escrowBalance || 0,
+        platform_fee_bps: escrowStats.platformFeeBps || 0,
+        token_address: escrowStats.tokenAddress || null,
+        error: escrowStats.error || null
+      } : {
+        enabled: false,
+        message: 'Blockchain mode not enabled'
       },
       system: {
         uptime: process.uptime(),
         memory: process.memoryUsage(),
-        node_version: process.version
+        node_version: process.version,
+        blockchain_mode: useBlockchain
       }
     };
 

@@ -88,6 +88,7 @@ export interface Metrics {
     total: number;
     active: number;
     claimed: number;
+    on_chain?: number;
     success_rate: string;
   };
   tokens: {
@@ -96,10 +97,20 @@ export interface Metrics {
     wallet_balance: number;
     wallet_address: string;
   };
+  escrow?: {
+    enabled: boolean;
+    contract_address?: string | null;
+    balance?: number;
+    platform_fee_bps?: number;
+    token_address?: string | null;
+    error?: string | null;
+    message?: string;
+  };
   system: {
     uptime: number;
     memory: object;
     node_version: string;
+    blockchain_mode?: boolean;
   };
 }
 
