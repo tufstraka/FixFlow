@@ -98,10 +98,7 @@ class Bounty {
       claimedAt: row.claimed_at,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
-<<<<<<< Updated upstream
-=======
       // Owner-funded bounty fields
->>>>>>> Stashed changes
       creatorWalletAddress: row.creator_wallet_address,
       fundingSource: row.funding_source,
       onChainBountyId: row.on_chain_bounty_id
