@@ -11,7 +11,6 @@ import ethereumPaymentService from '../services/ethereumPayment.js';
 import githubAppService from '../services/githubApp.js';
 import db from '../db.js';
 
-// Verify GitHub webhook signature
 function verifyWebhookSignature(payload, signature, secret = null) {
   const webhookSecret = secret || process.env.GITHUB_WEBHOOK_SECRET;
   if (!webhookSecret) {
@@ -27,16 +26,13 @@ function verifyWebhookSignature(payload, signature, secret = null) {
   }
 }
 
-// Verify API key for GitHub Actions
 function verifyApiKey(req) {
   const apiKey = req.headers['x-api-key'] || req.headers['authorization']?.replace('Bearer ', '');
   return apiKey && apiKey === process.env.API_KEY;
 }
 
-// GitHub webhook endpoint - receives events from GitHub
 router.post('/github', async (req, res) => {
   try {
-    // Verify signature
     const signature = req.headers['x-hub-signature-256'];
     if (!signature) {
       return res.status(401).json({ error: 'Missing signature' });
@@ -52,7 +48,6 @@ router.post('/github', async (req, res) => {
 
     logger.info(`Received GitHub webhook: ${eventType}`);
 
-    // Handle different event types
     switch (eventType) {
       case 'installation':
         await handleInstallation(event);
