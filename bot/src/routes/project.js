@@ -1,5 +1,5 @@
 import express from 'express';
-import { verifySession, requireAdmin } from '../middleware/auth.js';
+import { authenticateUser } from './user.js';
 import ProjectSettings from '../models/ProjectSettings.js';
 import User from '../models/User.js';
 import Bounty from '../models/Bounty.js';
@@ -12,7 +12,7 @@ const router = express.Router();
  * Get project settings for a repository
  * GET /api/projects/:owner/:repo/settings
  */
-router.get('/:owner/:repo/settings', verifySession, async (req, res) => {
+router.get('/:owner/:repo/settings', authenticateUser, async (req, res) => {
   try {
     const { owner, repo } = req.params;
     const repository = `${owner}/${repo}`;
@@ -45,7 +45,7 @@ router.get('/:owner/:repo/settings', verifySession, async (req, res) => {
  * Create or update project settings
  * PUT /api/projects/:owner/:repo/settings
  */
-router.put('/:owner/:repo/settings', verifySession, async (req, res) => {
+router.put('/:owner/:repo/settings', authenticateUser, async (req, res) => {
   try {
     const { owner, repo } = req.params;
     const repository = `${owner}/${repo}`;
@@ -109,7 +109,7 @@ router.put('/:owner/:repo/settings', verifySession, async (req, res) => {
  * Get all projects for the authenticated user
  * GET /api/projects
  */
-router.get('/', verifySession, async (req, res) => {
+router.get('/', authenticateUser, async (req, res) => {
   try {
     const projects = await ProjectSettings.findByOwner(req.user.githubLogin);
     res.json({ projects: projects.map(p => p.toJSON()) });
@@ -186,7 +186,7 @@ router.get('/:owner/:repo/stats', async (req, res) => {
  * Link Ethereum wallet to user account
  * POST /api/projects/link-wallet
  */
-router.post('/link-wallet', verifySession, async (req, res) => {
+router.post('/link-wallet', authenticateUser, async (req, res) => {
   try {
     const { address, signature, message } = req.body;
 
@@ -253,7 +253,7 @@ router.post('/link-wallet', verifySession, async (req, res) => {
  * Get nonce for wallet linking
  * GET /api/projects/wallet-nonce
  */
-router.get('/wallet-nonce', verifySession, async (req, res) => {
+router.get('/wallet-nonce', authenticateUser, async (req, res) => {
   try {
     const crypto = await import('crypto');
     const nonce = crypto.randomBytes(32).toString('hex');
@@ -304,7 +304,7 @@ router.get('/funding-info', async (req, res) => {
  * Called by frontend after user creates bounty via smart contract
  * POST /api/projects/:owner/:repo/bounties/on-chain
  */
-router.post('/:owner/:repo/bounties/on-chain', verifySession, async (req, res) => {
+router.post('/:owner/:repo/bounties/on-chain', authenticateUser, async (req, res) => {
   try {
     const { owner, repo } = req.params;
     const repository = `${owner}/${repo}`;

@@ -5,6 +5,60 @@ import Bounty from '../models/Bounty.js';
 import db from '../db.js';
 import mneeService from '../services/mnee.js';
 import escalationService from '../services/escalation.js';
+import User from '../models/User.js';
+
+/**
+ * Admin authentication middleware
+ * Supports both API key authentication and session-based admin authentication
+ *
+ * For API key: X-API-Key header matches API_KEY env variable
+ * For session: Bearer token in Authorization header is a valid session for an admin user
+ */
+const adminAuth = async (req, res, next) => {
+  try {
+    // Check for API key first (for automated systems/GitHub Actions)
+    const apiKey = req.headers['x-api-key'];
+    if (apiKey && apiKey === process.env.API_KEY) {
+      req.authType = 'api-key';
+      logger.debug('[Admin Auth] Authenticated via API key');
+      return next();
+    }
+
+    // Check for Bearer token (session-based authentication)
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      logger.warn('[Admin Auth] No valid auth credentials provided');
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+
+    const sessionToken = authHeader.substring(7);
+    
+    // Find user by session token
+    const user = await User.findBySessionToken(sessionToken);
+    
+    if (!user) {
+      logger.warn('[Admin Auth] Invalid or expired session token');
+      return res.status(401).json({ error: 'Invalid or expired session' });
+    }
+
+    // Check if user is admin
+    if (!user.isAdmin()) {
+      logger.warn(`[Admin Auth] User ${user.githubLogin} is not an admin`);
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+
+    req.user = user;
+    req.authType = 'session';
+    logger.debug(`[Admin Auth] Authenticated admin user: ${user.githubLogin}`);
+    next();
+  } catch (error) {
+    logger.error('[Admin Auth] Authentication error:', error);
+    res.status(500).json({ error: 'Authentication error' });
+  }
+};
+
+// Apply admin authentication to all routes
+router.use(adminAuth);
 
 // Get system metrics
 router.get('/metrics', async (req, res) => {

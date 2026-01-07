@@ -67,10 +67,13 @@ export function CreateBountyModal({
 
   // Fetch funding info and token balance
   useEffect(() => {
-    if (isOpen && isBlockchainMode) {
+    console.log('[CreateBounty] Modal opened:', { isOpen, isBlockchainMode, repository, issueId });
+    if (isOpen) {
+      // Always try to load funding info when modal is open
+      // The modal needs this info to function, regardless of isBlockchainMode flag
       loadFundingInfo();
     }
-  }, [isOpen, isBlockchainMode]);
+  }, [isOpen]);
 
   useEffect(() => {
     if (isOpen && isConnected && address && fundingInfo) {
@@ -79,8 +82,10 @@ export function CreateBountyModal({
   }, [isOpen, isConnected, address, fundingInfo]);
 
   const loadFundingInfo = async () => {
+    console.log('[CreateBounty] Loading funding info...');
     try {
       const info = await api.getFundingInfo();
+      console.log('[CreateBounty] Funding info received:', info);
       setFundingInfo(info);
       
       // Query the actual token address from the escrow contract
@@ -115,7 +120,7 @@ export function CreateBountyModal({
         }
       }
     } catch (err) {
-      console.error('Failed to load funding info:', err);
+      console.error('[CreateBounty] Failed to load funding info:', err);
       setError('Failed to load funding configuration');
     }
   };
@@ -173,8 +178,17 @@ export function CreateBountyModal({
   }, [actualTokenAddress]);
 
   const checkAndApprove = async () => {
+    console.log('[CreateBounty] checkAndApprove called');
     const tokenAddr = actualTokenAddress || fundingInfo?.mneeTokenAddress;
+    console.log('[CreateBounty] Configuration:', {
+      address,
+      escrowContractAddress: fundingInfo?.escrowContractAddress,
+      tokenAddr,
+      amount,
+      maxAmount
+    });
     if (!address || !fundingInfo?.escrowContractAddress || !tokenAddr) {
+      console.error('[CreateBounty] Missing configuration:', { address, escrowContractAddress: fundingInfo?.escrowContractAddress, tokenAddr });
       setError('Missing configuration. Please refresh and try again.');
       return;
     }
