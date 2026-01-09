@@ -1283,6 +1283,64 @@ Thank you for your contribution! 🚀`
     });
     logger.info(`[CLAIM-BOUNTY] ✓ Issue closed`);
 
+    // Merge the PR if it's not already merged
+    logger.info(`[CLAIM-BOUNTY] Step 12: Merging PR #${pullRequest.number}...`);
+    try {
+      // Check if PR is still open and mergeable
+      const { data: currentPR } = await octokit.rest.pulls.get({
+        owner,
+        repo,
+        pull_number: pullRequest.number
+      });
+
+      if (currentPR.merged) {
+        logger.info(`[CLAIM-BOUNTY] ✓ PR #${pullRequest.number} is already merged`);
+      } else if (currentPR.state === 'open' && currentPR.mergeable) {
+        // Merge the PR
+        await octokit.rest.pulls.merge({
+          owner,
+          repo,
+          pull_number: pullRequest.number,
+          commit_title: `Merge PR #${pullRequest.number}: Fixes #${issueNumber} (Bounty claimed)`,
+          merge_method: 'merge' // Can be 'merge', 'squash', or 'rebase'
+        });
+        logger.info(`[CLAIM-BOUNTY] ✓ PR #${pullRequest.number} merged successfully`);
+        
+        // Post a comment about the merge
+        await octokit.rest.issues.createComment({
+          owner,
+          repo,
+          issue_number: pullRequest.number,
+          body: `🔀 **Pull Request Merged**\n\nThis PR has been automatically merged after successfully claiming the bounty for issue #${issueNumber}.`
+        });
+      } else if (currentPR.state === 'open' && !currentPR.mergeable) {
+        logger.warn(`[CLAIM-BOUNTY] ⚠ PR #${pullRequest.number} is not mergeable (conflicts or other issues)`);
+        await octokit.rest.issues.createComment({
+          owner,
+          repo,
+          issue_number: pullRequest.number,
+          body: `⚠️ **Auto-merge skipped**\n\nThe bounty has been claimed, but this PR could not be automatically merged due to conflicts or branch protection rules. Please merge manually.`
+        });
+      } else {
+        logger.info(`[CLAIM-BOUNTY] PR #${pullRequest.number} is in state: ${currentPR.state}, skipping merge`);
+      }
+    } catch (mergeError) {
+      // Log but don't fail the bounty claim if merge fails
+      logger.warn(`[CLAIM-BOUNTY] ⚠ Failed to merge PR #${pullRequest.number}: ${mergeError.message}`);
+      
+      // Post a comment about the merge failure
+      try {
+        await octokit.rest.issues.createComment({
+          owner,
+          repo,
+          issue_number: pullRequest.number,
+          body: `⚠️ **Auto-merge failed**\n\nThe bounty has been claimed successfully, but automatic merge failed: ${mergeError.message}\n\nPlease merge the PR manually.`
+        });
+      } catch (commentError) {
+        logger.warn(`[CLAIM-BOUNTY] Failed to post merge failure comment: ${commentError.message}`);
+      }
+    }
+
     logger.info(`[CLAIM-BOUNTY] 🎉 Successfully claimed bounty ${bounty.bountyId} for ${pullRequest.user.login}!`);
     logger.info(`[CLAIM-BOUNTY] ========== CLAIM CHECK COMPLETE (SUCCESS) ==========`);
   } catch (error) {

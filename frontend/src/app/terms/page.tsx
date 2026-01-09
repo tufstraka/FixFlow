@@ -64,7 +64,7 @@ export default function TermsPage() {
             <div className="space-y-3">
               <div className="flex items-start gap-2">
                 <CheckCircle2 className="w-5 h-5 text-success-500 flex-shrink-0 mt-0.5" />
-                <span className="text-sm text-gray-600">You keep 100% of bounty earnings (no platform fees)</span>
+                <span className="text-sm text-gray-600">2.5% platform fee on successful bounty claims (on-chain escrow)</span>
               </div>
               <div className="flex items-start gap-2">
                 <CheckCircle2 className="w-5 h-5 text-success-500 flex-shrink-0 mt-0.5" />
@@ -217,11 +217,21 @@ export default function TermsPage() {
             </h2>
             <div className="pl-11">
               <p className="text-gray-600 mb-4">
-                Payments are made in MNEE stablecoin (pegged to USD at 1:1) or ERC-20 tokens on Ethereum. 
-                FixFlow does not charge platform fees on bounty payments—you receive 100% of the bounty amount.
+                Payments are made in MNEE stablecoin (pegged to USD at 1:1) on Ethereum.
+              </p>
+              <div className="p-4 rounded-xl bg-primary-50 border border-primary-200 mb-4">
+                <h4 className="font-semibold text-gray-900 mb-2">Platform Fee: 2.5%</h4>
+                <p className="text-sm text-gray-600">
+                  FixFlow charges a 2.5% platform fee, deducted from successful bounty claims.
+                  There are no fees for cancelled or expired bounties—the full amount is refunded.
+                </p>
+              </div>
+              <p className="text-gray-600 mb-4">
+                Gas fees for Ethereum transactions are covered by FixFlow—neither bounty creators nor
+                claimers pay gas costs.
               </p>
               <p className="text-gray-600">
-                <strong>Tax Responsibility:</strong> You are solely responsible for determining and remitting 
+                <strong>Tax Responsibility:</strong> You are solely responsible for determining and remitting
                 any taxes applicable to your bounty earnings.
               </p>
             </div>

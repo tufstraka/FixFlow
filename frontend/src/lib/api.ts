@@ -72,6 +72,39 @@ export interface WalletNonce {
   message: string;
 }
 
+export interface Feedback {
+  id: number;
+  type: 'bug' | 'feature' | 'general' | 'praise';
+  message: string;
+  email: string | null;
+  rating: number | null;
+  page: string | null;
+  user_agent: string | null;
+  user_id: number | null;
+  status: 'pending' | 'reviewed' | 'resolved';
+  created_at: string;
+  resolved_at: string | null;
+  admin_notes: string | null;
+}
+
+export interface FeedbackStats {
+  total: number;
+  pending: number;
+  reviewed: number;
+  resolved: number;
+}
+
+export interface FeedbackResponse {
+  feedback: Feedback[];
+  stats: FeedbackStats;
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    pages: number;
+  };
+}
+
 export interface PaginatedResponse<T> {
   bounties?: T[];
   users?: T[];
@@ -336,6 +369,38 @@ class ApiClient {
     return this.request(`/api/projects/${owner}/${repo}/bounties/on-chain`, {
       method: 'POST',
       body: JSON.stringify(data),
+    });
+  }
+
+  // Feedback submission (public - no auth required)
+  async submitFeedback(data: {
+    type: 'bug' | 'feature' | 'general' | 'praise';
+    message: string;
+    email?: string | null;
+    rating?: number | null;
+    page?: string | null;
+    userAgent?: string | null;
+  }): Promise<{ success: boolean; id: number }> {
+    return this.request('/api/feedback', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // Admin feedback endpoints
+  async getAllFeedback(options: { status?: string; type?: string; page?: number; limit?: number } = {}): Promise<FeedbackResponse> {
+    const params = new URLSearchParams();
+    if (options.status) params.set('status', options.status);
+    if (options.type) params.set('type', options.type);
+    if (options.page) params.set('page', options.page.toString());
+    if (options.limit) params.set('limit', options.limit.toString());
+    return this.request(`/api/admin/feedback?${params}`);
+  }
+
+  async updateFeedbackStatus(feedbackId: number, status: 'pending' | 'reviewed' | 'resolved', notes?: string): Promise<Feedback> {
+    return this.request(`/api/admin/feedback/${feedbackId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status, admin_notes: notes }),
     });
   }
 }

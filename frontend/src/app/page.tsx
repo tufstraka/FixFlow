@@ -124,7 +124,7 @@ export default function HomePage() {
               animate-fade-in-up delay-300">
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-secondary-600" />
-                <span>Zero fees</span>
+                <span>2.5% platform fee</span>
               </div>
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-secondary-600" />
@@ -280,7 +280,7 @@ export default function HomePage() {
           <div className="card-glass p-10 lg:p-14">
             <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-12">
               {[
-                { icon: Coins, value: '$0', label: 'Transaction Fees', sub: 'Keep 100% of bounties', color: 'primary' },
+                { icon: Coins, value: '2.5%', label: 'Platform Fee', sub: 'Only on successful claims', color: 'primary' },
                 { icon: Zap, value: '<1s', label: 'Payment Speed', sub: 'Instant settlement', color: 'secondary' },
                 { icon: Shield, value: '1:1', label: 'USD Stable', sub: 'No volatility risk', color: 'accent' },
                 { icon: TrendingUp, value: 'Auto', label: 'Escalation', sub: 'Bounties grow over time', color: 'primary' },
@@ -493,12 +493,14 @@ export default function HomePage() {
               {/* Primary Links */}
               <div className="flex items-center gap-8 text-sm text-gray-500">
                 <Link href="/bounties" className="hover:text-gray-900 transition-colors">
-                  Explore
+                  Explore Bounties
                 </Link>
-                <a href="https://github.com" target="_blank" rel="noopener noreferrer"
-                  className="hover:text-gray-900 transition-colors">
-                  GitHub
-                </a>
+                <Link href="/for-teams" className="hover:text-gray-900 transition-colors">
+                  For Teams
+                </Link>
+                <Link href="/pricing" className="hover:text-gray-900 transition-colors">
+                  Pricing
+                </Link>
                 <a href="https://mnee.io" target="_blank" rel="noopener noreferrer"
                   className="hover:text-gray-900 transition-colors">
                   MNEE

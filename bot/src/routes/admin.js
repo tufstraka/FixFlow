@@ -319,4 +319,164 @@ router.get('/export', async (req, res) => {
   }
 });
 
+// Get all feedback (admin only)
+router.get('/feedback', async (req, res) => {
+  try {
+    const { status, type, page = 1, limit = 20 } = req.query;
+    const offset = (page - 1) * limit;
+
+    let whereClause = '';
+    const params = [];
+    let paramIndex = 1;
+
+    if (status) {
+      whereClause += ` WHERE status = $${paramIndex++}`;
+      params.push(status);
+    }
+
+    if (type) {
+      whereClause += whereClause ? ` AND type = $${paramIndex++}` : ` WHERE type = $${paramIndex++}`;
+      params.push(type);
+    }
+
+    // Get feedback with pagination
+    const feedbackQuery = `
+      SELECT f.*, u.github_login as user_github_login
+      FROM feedback f
+      LEFT JOIN users u ON f.user_id = u.id
+      ${whereClause}
+      ORDER BY f.created_at DESC
+      LIMIT $${paramIndex++} OFFSET $${paramIndex++}
+    `;
+    params.push(parseInt(limit), offset);
+
+    const { rows: feedback } = await db.query(feedbackQuery, params);
+
+    // Get total count
+    let countParams = params.slice(0, params.length - 2);
+    const { rows: countResult } = await db.query(
+      `SELECT COUNT(*) as count FROM feedback ${whereClause}`,
+      countParams
+    );
+    const total = parseInt(countResult[0].count);
+
+    // Get summary stats
+    const { rows: stats } = await db.query(`
+      SELECT
+        COUNT(*) FILTER (WHERE status = 'new') as new_count,
+        COUNT(*) FILTER (WHERE status = 'reviewed') as reviewed_count,
+        COUNT(*) FILTER (WHERE status = 'resolved') as resolved_count,
+        COUNT(*) FILTER (WHERE type = 'bug') as bug_count,
+        COUNT(*) FILTER (WHERE type = 'feature') as feature_count,
+        AVG(rating) FILTER (WHERE rating IS NOT NULL) as avg_rating
+      FROM feedback
+    `);
+
+    res.json({
+      feedback: feedback.map(f => ({
+        id: f.id,
+        type: f.type,
+        message: f.message,
+        email: f.email,
+        rating: f.rating,
+        page: f.page,
+        userAgent: f.user_agent,
+        userId: f.user_id,
+        userGithubLogin: f.user_github_login,
+        status: f.status,
+        adminNotes: f.admin_notes,
+        createdAt: f.created_at,
+        resolvedAt: f.resolved_at
+      })),
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        pages: Math.ceil(total / limit)
+      },
+      stats: {
+        new: parseInt(stats[0].new_count || 0),
+        reviewed: parseInt(stats[0].reviewed_count || 0),
+        resolved: parseInt(stats[0].resolved_count || 0),
+        bugs: parseInt(stats[0].bug_count || 0),
+        features: parseInt(stats[0].feature_count || 0),
+        avgRating: stats[0].avg_rating ? parseFloat(stats[0].avg_rating).toFixed(1) : null
+      }
+    });
+  } catch (error) {
+    logger.error('Failed to get feedback:', error);
+    res.status(500).json({ error: 'Failed to get feedback' });
+  }
+});
+
+// Update feedback status (admin only)
+router.patch('/feedback/:feedbackId', async (req, res) => {
+  try {
+    const { feedbackId } = req.params;
+    const { status, adminNotes } = req.body;
+
+    // Validate status
+    const validStatuses = ['new', 'reviewed', 'resolved'];
+    if (status && !validStatuses.includes(status)) {
+      return res.status(400).json({ error: 'Invalid status' });
+    }
+
+    // Build update query
+    const updates = [];
+    const params = [];
+    let paramIndex = 1;
+
+    if (status) {
+      updates.push(`status = $${paramIndex++}`);
+      params.push(status);
+      
+      if (status === 'resolved') {
+        updates.push(`resolved_at = NOW()`);
+        updates.push(`resolved_by = $${paramIndex++}`);
+        params.push(req.user?.id || null);
+      }
+    }
+
+    if (adminNotes !== undefined) {
+      updates.push(`admin_notes = $${paramIndex++}`);
+      params.push(adminNotes);
+    }
+
+    if (updates.length === 0) {
+      return res.status(400).json({ error: 'No updates provided' });
+    }
+
+    params.push(feedbackId);
+
+    const { rows } = await db.query(`
+      UPDATE feedback SET ${updates.join(', ')}
+      WHERE id = $${paramIndex}
+      RETURNING *
+    `, params);
+
+    if (!rows[0]) {
+      return res.status(404).json({ error: 'Feedback not found' });
+    }
+
+    const f = rows[0];
+    res.json({
+      id: f.id,
+      type: f.type,
+      message: f.message,
+      email: f.email,
+      rating: f.rating,
+      page: f.page,
+      userAgent: f.user_agent,
+      userId: f.user_id,
+      status: f.status,
+      adminNotes: f.admin_notes,
+      createdAt: f.created_at,
+      resolvedAt: f.resolved_at
+    });
+  } catch (error) {
+    logger.error('Failed to update feedback:', error);
+    res.status(500).json({ error: 'Failed to update feedback' });
+  }
+});
+
 export default router;

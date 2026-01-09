@@ -4,6 +4,7 @@ import './globals.css';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { Web3Provider } from '@/contexts/Web3Context';
 import { Navigation } from '@/components/Navigation';
+import FeedbackWidget from '@/components/FeedbackWidget';
 
 const inter = Inter({ 
   subsets: ['latin'],
@@ -13,7 +14,7 @@ const inter = Inter({
 });
 
 // Base URL for canonical URLs and OG images
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://fixflow.dev';
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://fixflow.locsafe.org';
 
 export const metadata: Metadata = {
   // Primary Meta Tags
@@ -64,10 +65,10 @@ export const metadata: Metadata = {
   // Icons
   icons: {
     icon: [
-      { url: '/favicon.ico', sizes: 'any' },
       { url: '/icon.svg', type: 'image/svg+xml' },
     ],
-    apple: '/apple-touch-icon.png',
+    shortcut: '/icon.svg',
+    apple: '/icon.svg',
   },
   
   // Manifest
@@ -268,6 +269,8 @@ export default function RootLayout({
                 {children}
               </main>
             </div>
+            {/* Feedback Widget - appears on all pages */}
+            <FeedbackWidget position="bottom-right" />
           </Web3Provider>
         </AuthProvider>
       </body>

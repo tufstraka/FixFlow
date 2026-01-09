@@ -13,6 +13,7 @@ import adminRoutes from './routes/admin.js';
 import githubRoutes from './routes/github.js';
 import userRoutes from './routes/user.js';
 import projectRoutes from './routes/project.js';
+import feedbackRoutes from './routes/feedback.js';
 import escalationService from './services/escalation.js';
 import bountyService from './services/bountyService.js';
 import mneeService from './services/mnee.js';
@@ -75,6 +76,7 @@ app.use('/api/bounties', authMiddleware, bountyRoutes);
 app.use('/api/admin', adminRoutes); // Admin routes have their own auth middleware that supports both API key and session-based admin auth
 app.use('/api/projects', projectRoutes); // Project settings and owner-funded bounties
 app.use('/api/user', userRoutes); // User authentication and profile routes
+app.use('/api/feedback', feedbackRoutes); // Public feedback submission endpoint
 app.use('/webhooks', webhookRoutes); // Webhook endpoints (GitHub, MNEE status, create-bounty)
 app.use('/github', githubRoutes); // GitHub App OAuth and installation callbacks
 

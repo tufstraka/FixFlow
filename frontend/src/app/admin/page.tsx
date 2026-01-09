@@ -4,9 +4,9 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { useAuth } from '@/contexts/AuthContext';
-import { api, Bounty, Metrics, User } from '@/lib/api';
+import { api, Bounty, Metrics, User, Feedback } from '@/lib/api';
 import { MOCK_BOUNTIES, MOCK_USERS, MOCK_METRICS, simulateDelay } from '@/lib/mockData';
-import { Coins, Users, Activity, Database, RefreshCw, AlertTriangle, Shield, Wallet, TrendingUp, Clock, Zap, Target, GitBranch, ExternalLink, Server, Award, Link2, Box } from 'lucide-react';
+import { Coins, Users, Activity, Database, RefreshCw, AlertTriangle, Shield, Wallet, TrendingUp, Clock, Zap, Target, GitBranch, ExternalLink, Server, Award, Link2, Box, MessageSquare, Star, Bug, Lightbulb, Heart, Check, X, ChevronDown, ChevronUp, Mail, Globe } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 
 export default function AdminPage() {
@@ -18,6 +18,14 @@ export default function AdminPage() {
   const [eligibleForEscalation, setEligibleForEscalation] = useState<Bounty[]>([]);
   const [loadingData, setLoadingData] = useState(true);
   const [escalating, setEscalating] = useState(false);
+  
+  // Feedback state
+  const [feedbackList, setFeedbackList] = useState<Feedback[]>([]);
+  const [feedbackStats, setFeedbackStats] = useState<{ total: number; pending: number; reviewed: number; resolved: number }>({ total: 0, pending: 0, reviewed: 0, resolved: 0 });
+  const [feedbackFilter, setFeedbackFilter] = useState<'all' | 'pending' | 'reviewed' | 'resolved'>('all');
+  const [feedbackTypeFilter, setFeedbackTypeFilter] = useState<'all' | 'bug' | 'feature' | 'general' | 'praise'>('all');
+  const [expandedFeedback, setExpandedFeedback] = useState<number | null>(null);
+  const [updatingFeedback, setUpdatingFeedback] = useState<number | null>(null);
 
   useEffect(() => {
     if (!loading && (!user || user.role !== 'admin')) {
@@ -44,27 +52,83 @@ export default function AdminPage() {
       // Filter bounties eligible for escalation in demo
       const eligibleBounties = MOCK_BOUNTIES.filter(b => b.isEligibleForEscalation);
       setEligibleForEscalation(eligibleBounties as Bounty[]);
+      // Mock feedback data
+      setFeedbackList([]);
+      setFeedbackStats({ total: 0, pending: 0, reviewed: 0, resolved: 0 });
       setLoadingData(false);
       return;
     }
 
     try {
-      const [metricsData, bountiesData, usersData, escalationData] = await Promise.all([
+      const [metricsData, bountiesData, usersData, escalationData, feedbackData] = await Promise.all([
         api.getMetrics(),
         api.getAllBounties({ limit: 10 }),
         api.getAllUsers({ limit: 10 }),
         api.getEligibleForEscalation(),
+        api.getAllFeedback({ limit: 50 }),
       ]);
       setMetrics(metricsData);
       setBounties(bountiesData.bounties || []);
       setUsers(usersData.users || []);
       setEligibleForEscalation(escalationData);
+      setFeedbackList(feedbackData.feedback || []);
+      setFeedbackStats(feedbackData.stats || { total: 0, pending: 0, reviewed: 0, resolved: 0 });
     } catch (error) {
       console.error('Failed to load admin data:', error);
     } finally {
       setLoadingData(false);
     }
   };
+
+  const handleUpdateFeedbackStatus = async (feedbackId: number, status: 'pending' | 'reviewed' | 'resolved', notes?: string) => {
+    setUpdatingFeedback(feedbackId);
+    try {
+      await api.updateFeedbackStatus(feedbackId, status, notes);
+      // Update local state
+      setFeedbackList(prev => prev.map(f =>
+        f.id === feedbackId ? { ...f, status, admin_notes: notes || f.admin_notes } : f
+      ));
+      // Update stats
+      setFeedbackStats(prev => {
+        const oldStatus = feedbackList.find(f => f.id === feedbackId)?.status || 'pending';
+        return {
+          ...prev,
+          [oldStatus]: prev[oldStatus as keyof typeof prev] - 1,
+          [status]: (prev[status as keyof typeof prev] || 0) + 1,
+        };
+      });
+    } catch (error) {
+      console.error('Failed to update feedback:', error);
+    } finally {
+      setUpdatingFeedback(null);
+    }
+  };
+
+  const getFeedbackTypeIcon = (type: string) => {
+    switch (type) {
+      case 'bug': return <Bug className="w-4 h-4 text-red-500" />;
+      case 'feature': return <Lightbulb className="w-4 h-4 text-honey-500" />;
+      case 'praise': return <Heart className="w-4 h-4 text-pink-500" />;
+      default: return <MessageSquare className="w-4 h-4 text-ocean-500" />;
+    }
+  };
+
+  const formatDate = (dateString: string | null | undefined) => {
+    if (!dateString) return 'Unknown';
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return 'Unknown';
+      return formatDistanceToNow(date, { addSuffix: true });
+    } catch {
+      return 'Unknown';
+    }
+  };
+
+  const filteredFeedback = feedbackList.filter(f => {
+    if (feedbackFilter !== 'all' && f.status !== feedbackFilter) return false;
+    if (feedbackTypeFilter !== 'all' && f.type !== feedbackTypeFilter) return false;
+    return true;
+  });
 
   const handleEscalation = async () => {
     setEscalating(true);
@@ -403,6 +467,224 @@ export default function AdminPage() {
               </div>
             )}
           </div>
+        </div>
+
+        {/* Feedback Section */}
+        <div className="glass-card overflow-hidden mb-8">
+          <div className="p-6 border-b border-warm-100">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-pink-400 to-grape-500 flex items-center justify-center">
+                  <MessageSquare className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold text-warm-800">User Feedback</h2>
+                  <p className="text-sm text-warm-500">
+                    {feedbackStats.pending > 0 ? (
+                      <span className="text-grape-600 font-medium">{feedbackStats.pending} pending review</span>
+                    ) : (
+                      'All caught up!'
+                    )}
+                  </p>
+                </div>
+              </div>
+              
+              {/* Filters */}
+              <div className="flex flex-wrap items-center gap-2">
+                <select
+                  value={feedbackFilter}
+                  onChange={(e) => setFeedbackFilter(e.target.value as typeof feedbackFilter)}
+                  className="px-3 py-1.5 text-sm rounded-lg border border-warm-200 bg-white focus:ring-2 focus:ring-grape-300 focus:border-grape-400"
+                >
+                  <option value="all">All Status</option>
+                  <option value="pending">Pending ({feedbackStats.pending})</option>
+                  <option value="reviewed">Reviewed ({feedbackStats.reviewed})</option>
+                  <option value="resolved">Resolved ({feedbackStats.resolved})</option>
+                </select>
+                <select
+                  value={feedbackTypeFilter}
+                  onChange={(e) => setFeedbackTypeFilter(e.target.value as typeof feedbackTypeFilter)}
+                  className="px-3 py-1.5 text-sm rounded-lg border border-warm-200 bg-white focus:ring-2 focus:ring-grape-300 focus:border-grape-400"
+                >
+                  <option value="all">All Types</option>
+                  <option value="bug">🐛 Bugs</option>
+                  <option value="feature">💡 Features</option>
+                  <option value="general">💬 General</option>
+                  <option value="praise">❤️ Praise</option>
+                </select>
+              </div>
+            </div>
+            
+            {/* Stats Summary */}
+            <div className="grid grid-cols-4 gap-3 mt-4">
+              <div className="p-3 rounded-lg bg-warm-50 text-center">
+                <div className="text-2xl font-bold text-warm-800">{feedbackStats.total}</div>
+                <div className="text-xs text-warm-500">Total</div>
+              </div>
+              <div className="p-3 rounded-lg bg-honey-50 text-center">
+                <div className="text-2xl font-bold text-honey-600">{feedbackStats.pending}</div>
+                <div className="text-xs text-honey-600">Pending</div>
+              </div>
+              <div className="p-3 rounded-lg bg-ocean-50 text-center">
+                <div className="text-2xl font-bold text-ocean-600">{feedbackStats.reviewed}</div>
+                <div className="text-xs text-ocean-600">Reviewed</div>
+              </div>
+              <div className="p-3 rounded-lg bg-green-50 text-center">
+                <div className="text-2xl font-bold text-green-600">{feedbackStats.resolved}</div>
+                <div className="text-xs text-green-600">Resolved</div>
+              </div>
+            </div>
+          </div>
+          
+          {/* Feedback List */}
+          {loadingData ? (
+            <div className="p-8 text-center">
+              <div className="w-10 h-10 rounded-xl skeleton mx-auto mb-3" />
+              <div className="skeleton-text w-32 mx-auto" />
+            </div>
+          ) : filteredFeedback.length === 0 ? (
+            <div className="p-12 text-center">
+              <MessageSquare className="w-12 h-12 text-warm-300 mx-auto mb-3" />
+              <p className="text-warm-500">No feedback found</p>
+              <p className="text-sm text-warm-400">Feedback from users will appear here</p>
+            </div>
+          ) : (
+            <div className="divide-y divide-warm-100 max-h-[600px] overflow-y-auto">
+              {filteredFeedback.map((feedback) => (
+                <div key={feedback.id} className={`transition-colors ${expandedFeedback === feedback.id ? 'bg-warm-50/50' : 'hover:bg-warm-50/30'}`}>
+                  {/* Feedback Header */}
+                  <div
+                    className="p-4 cursor-pointer"
+                    onClick={() => setExpandedFeedback(expandedFeedback === feedback.id ? null : feedback.id)}
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className="w-9 h-9 rounded-lg bg-white border border-warm-100 flex items-center justify-center flex-shrink-0">
+                        {getFeedbackTypeIcon(feedback.type)}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                            feedback.status === 'pending' ? 'bg-honey-100 text-honey-700' :
+                            feedback.status === 'reviewed' ? 'bg-ocean-100 text-ocean-700' :
+                            'bg-green-100 text-green-700'
+                          }`}>
+                            {feedback.status.charAt(0).toUpperCase() + feedback.status.slice(1)}
+                          </span>
+                          <span className="text-xs text-warm-400 capitalize">{feedback.type}</span>
+                          {feedback.rating && (
+                            <span className="flex items-center gap-0.5 text-xs text-honey-500">
+                              <Star className="w-3 h-3 fill-current" />
+                              {feedback.rating}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-warm-800 text-sm line-clamp-2">{feedback.message}</p>
+                        <div className="flex items-center gap-3 mt-2 text-xs text-warm-400">
+                          <span>{formatDate(feedback.created_at)}</span>
+                          {feedback.email && (
+                            <span className="flex items-center gap-1">
+                              <Mail className="w-3 h-3" />
+                              {feedback.email}
+                            </span>
+                          )}
+                          {feedback.page && (
+                            <span className="flex items-center gap-1">
+                              <Globe className="w-3 h-3" />
+                              {feedback.page}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex-shrink-0">
+                        {expandedFeedback === feedback.id ? (
+                          <ChevronUp className="w-5 h-5 text-warm-400" />
+                        ) : (
+                          <ChevronDown className="w-5 h-5 text-warm-400" />
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Expanded Details */}
+                  {expandedFeedback === feedback.id && (
+                    <div className="px-4 pb-4 pt-0">
+                      <div className="ml-12 p-4 rounded-xl bg-white border border-warm-100">
+                        <p className="text-warm-700 text-sm whitespace-pre-wrap mb-4">{feedback.message}</p>
+                        
+                        {feedback.user_agent && (
+                          <div className="text-xs text-warm-400 mb-4 p-2 bg-warm-50 rounded-lg font-mono overflow-x-auto">
+                            {feedback.user_agent}
+                          </div>
+                        )}
+                        
+                        {feedback.admin_notes && (
+                          <div className="mb-4 p-3 rounded-lg bg-grape-50 border border-grape-100">
+                            <p className="text-xs text-grape-600 font-medium mb-1">Admin Notes</p>
+                            <p className="text-sm text-grape-800">{feedback.admin_notes}</p>
+                          </div>
+                        )}
+                        
+                        {/* Action Buttons */}
+                        <div className="flex flex-wrap items-center gap-2">
+                          {feedback.status === 'pending' && (
+                            <button
+                              onClick={() => handleUpdateFeedbackStatus(feedback.id, 'reviewed')}
+                              disabled={updatingFeedback === feedback.id}
+                              className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg bg-ocean-100 text-ocean-700 hover:bg-ocean-200 transition-colors disabled:opacity-50"
+                            >
+                              {updatingFeedback === feedback.id ? (
+                                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                              ) : (
+                                <Check className="w-3.5 h-3.5" />
+                              )}
+                              Mark as Reviewed
+                            </button>
+                          )}
+                          {feedback.status !== 'resolved' && (
+                            <button
+                              onClick={() => handleUpdateFeedbackStatus(feedback.id, 'resolved')}
+                              disabled={updatingFeedback === feedback.id}
+                              className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg bg-green-100 text-green-700 hover:bg-green-200 transition-colors disabled:opacity-50"
+                            >
+                              {updatingFeedback === feedback.id ? (
+                                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                              ) : (
+                                <Check className="w-3.5 h-3.5" />
+                              )}
+                              Mark as Resolved
+                            </button>
+                          )}
+                          {feedback.status === 'resolved' && (
+                            <button
+                              onClick={() => handleUpdateFeedbackStatus(feedback.id, 'pending')}
+                              disabled={updatingFeedback === feedback.id}
+                              className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg bg-warm-100 text-warm-700 hover:bg-warm-200 transition-colors disabled:opacity-50"
+                            >
+                              {updatingFeedback === feedback.id ? (
+                                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                              ) : (
+                                <X className="w-3.5 h-3.5" />
+                              )}
+                              Reopen
+                            </button>
+                          )}
+                          {feedback.email && (
+                            <a
+                              href={`mailto:${feedback.email}?subject=Re: Your feedback on FixFlow`}
+                              className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg bg-grape-100 text-grape-700 hover:bg-grape-200 transition-colors"
+                            >
+                              <Mail className="w-3.5 h-3.5" />
+                              Reply
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* System Info */}
