@@ -4,19 +4,33 @@ This document explains how to use the Ethereum blockchain integration for FixFlo
 
 ## Overview
 
+FixFlow is built around the MNEE stablecoin, a USD-pegged token that provides predictable value for bounty payments. The primary payment method uses the MNEE token on Ethereum mainnet.
+
 FixFlow supports two payment modes:
 
-1. **MNEE SDK Mode** (default): Uses the MNEE SDK for Bitcoin-style payments
-2. **Blockchain Mode**: Uses Ethereum smart contracts with the MNEE ERC-20 token
+1. **Blockchain Mode** (recommended): Uses Ethereum smart contracts with the MNEE ERC-20 token on mainnet
+2. **MNEE SDK Mode**: Uses the MNEE SDK for Bitcoin-style payments (legacy)
 
-The mode is controlled by the `USE_BLOCKCHAIN` environment variable.
+The mode is controlled by the `USE_BLOCKCHAIN` environment variable. For new deployments, we recommend using Blockchain Mode.
 
 ## MNEE Token Information
 
-**Ethereum Mainnet:**
-- Contract: `0x8ccedbAe4916b79da7F3F612EfB2EB93A2bFD6cF`
-- Etherscan: https://etherscan.io/token/0x8ccedbAe4916b79da7F3F612EfB2EB93A2bFD6cF
-- Standard: ERC-20
+### Ethereum Mainnet (Production)
+
+| Property | Value |
+|----------|-------|
+| **Contract Address** | `0x8ccedbAe4916b79da7F3F612EfB2EB93A2bFD6cF` |
+| **Network** | Ethereum Mainnet (Chain ID: 1) |
+| **Standard** | ERC-20 |
+| **Decimals** | 18 |
+| **Symbol** | MNEE |
+| **Etherscan** | [View Token](https://etherscan.io/token/0x8ccedbAe4916b79da7F3F612EfB2EB93A2bFD6cF) |
+
+### Sepolia Testnet (Development)
+
+For testing purposes, you can deploy a mock MNEE token on Sepolia. See [Smart Contract Deployment](./SMART_CONTRACT_DEPLOYMENT.md) for instructions.
+
+> **Important:** Always verify you're using the correct token address. The mainnet MNEE token address is `0x8ccedbAe4916b79da7F3F612EfB2EB93A2bFD6cF`.
 
 ## Architecture
 
@@ -55,19 +69,28 @@ The `BountyEscrow` contract handles:
 Add these to your `.env` file:
 
 ```bash
-# Enable blockchain mode
+# Enable blockchain mode (recommended for production)
 USE_BLOCKCHAIN=true
 
 # Ethereum RPC URL (Alchemy, Infura, etc.)
+# For mainnet:
 ETHEREUM_RPC_URL=https://eth-mainnet.g.alchemy.com/v2/YOUR_API_KEY
+# For Sepolia testnet:
+# ETHEREUM_RPC_URL=https://eth-sepolia.g.alchemy.com/v2/YOUR_API_KEY
+
+# Network specification (optional, auto-detected from RPC URL)
+# ETHEREUM_NETWORK=mainnet
 
 # Bot's Ethereum private key (acts as oracle)
+# This wallet will sign transactions to release bounties
 ETHEREUM_PRIVATE_KEY=your_private_key_here
 
 # Deployed BountyEscrow contract address
 BOUNTY_ESCROW_ADDRESS=0x...
 
-# MNEE Token address (mainnet)
+# MNEE Token address
+# Mainnet (production): 0x8ccedbAe4916b79da7F3F612EfB2EB93A2bFD6cF
+# Sepolia (testing): Deploy your own mock token
 MNEE_TOKEN_ADDRESS=0x8ccedbAe4916b79da7F3F612EfB2EB93A2bFD6cF
 ```
 

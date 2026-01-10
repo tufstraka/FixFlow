@@ -1,9 +1,10 @@
 # MNEE SDK Integration Guide
 
-This document provides comprehensive details on how the FixFlow system integrates with the MNEE SDK for payment processing.
+This document provides comprehensive details on how the FixFlow system integrates with the MNEE token for payment processing.
 
 ## Table of Contents
 - [Overview](#overview)
+- [MNEE Token Information](#mnee-token-information)
 - [Setup](#setup)
 - [Core Operations](#core-operations)
 - [Balance Management](#balance-management)
@@ -13,11 +14,32 @@ This document provides comprehensive details on how the FixFlow system integrate
 
 ## Overview
 
-The FixFlow system uses the MNEE SDK to:
+FixFlow uses MNEE, a USD-pegged stablecoin, for all bounty payments. This provides predictable value for developers claiming bounties without cryptocurrency volatility concerns.
+
+The FixFlow system uses MNEE to:
 - Check bot wallet balances
 - Send automatic payments to developers
-- Validate MNEE addresses
+- Validate MNEE addresses (both Bitcoin-style and Ethereum)
 - Monitor transaction status
+
+## MNEE Token Information
+
+MNEE is available on multiple networks:
+
+### Ethereum Mainnet (Primary)
+
+| Property | Value |
+|----------|-------|
+| **Contract Address** | `0x8ccedbAe4916b79da7F3F612EfB2EB93A2bFD6cF` |
+| **Standard** | ERC-20 |
+| **Decimals** | 18 |
+| **Etherscan** | [View on Etherscan](https://etherscan.io/token/0x8ccedbAe4916b79da7F3F612EfB2EB93A2bFD6cF) |
+
+### Bitcoin SV Network (Legacy)
+
+MNEE also supports Bitcoin-style addresses for backwards compatibility. These addresses start with `1` or `3`.
+
+> **Recommendation:** For new deployments, use the Ethereum mainnet token with `USE_BLOCKCHAIN=true` for better DeFi integrations and wider wallet support.
 
 ## Setup
 

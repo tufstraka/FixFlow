@@ -142,7 +142,21 @@ Cryptocurrency bounties have been tried before, but volatility killed them. Nobo
 
 MNEE solves this by being a stablecoin. Its value is pegged to the US dollar. When you see a 50 MNEE bounty, you know it's worth approximately $50. When you receive payment, you're not gambling on market movements.
 
-MNEE also provides a clean API for programmatic payments. No blockchain transactions, no gas fees, no wallet complications. Just simple API calls that move money instantly.
+### MNEE Token on Ethereum
+
+FixFlow uses the MNEE ERC-20 token on Ethereum mainnet:
+
+| Property | Value |
+|----------|-------|
+| **Contract Address** | `0x8ccedbAe4916b79da7F3F612EfB2EB93A2bFD6cF` |
+| **Network** | Ethereum Mainnet |
+| **Etherscan** | [View Token](https://etherscan.io/token/0x8ccedbAe4916b79da7F3F612EfB2EB93A2bFD6cF) |
+
+This enables:
+- **Transparent payments**: All bounty payouts are visible on-chain
+- **Wide wallet support**: Use MetaMask, Rainbow, or any Ethereum wallet
+- **DeFi integrations**: MNEE can be used across the Ethereum ecosystem
+- **Escrow contracts**: Bounty funds are held securely in smart contracts until earned
 
 ## The bigger picture
 

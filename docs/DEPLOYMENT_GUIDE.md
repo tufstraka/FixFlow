@@ -195,11 +195,32 @@ GITHUB_APP_OAUTH_REDIRECT_URL=https://yourdomain.com/auth/callback
 # GitHub App Private Key (raw with \n for newlines)
 GITHUB_APP_PRIVATE_KEY="-----BEGIN RSA PRIVATE KEY-----\nMIIE...\n-----END RSA PRIVATE KEY-----"
 
-# MNEE Payment Service
-MNEE_ENVIRONMENT=production
-MNEE_API_KEY=your_mnee_api_key
-MNEE_BOT_ADDRESS=your_mnee_wallet_address
-MNEE_BOT_WIF=your_mnee_wallet_private_key_wif
+# ===========================================
+# MNEE Payment Configuration
+# ===========================================
+# FixFlow uses MNEE (ERC-20 token) on Ethereum mainnet
+# Contract: 0x8ccedbAe4916b79da7F3F612EfB2EB93A2bFD6cF
+
+# Enable blockchain mode for Ethereum MNEE token (recommended)
+USE_BLOCKCHAIN=true
+
+# Ethereum RPC URL (use Alchemy, Infura, or your own node)
+ETHEREUM_RPC_URL=https://eth-mainnet.g.alchemy.com/v2/YOUR_API_KEY
+
+# Bot's Ethereum private key (for signing transactions)
+ETHEREUM_PRIVATE_KEY=your_ethereum_private_key_here
+
+# Deployed BountyEscrow contract address
+BOUNTY_ESCROW_ADDRESS=0x_your_escrow_contract_address
+
+# MNEE Token address (mainnet)
+MNEE_TOKEN_ADDRESS=0x8ccedbAe4916b79da7F3F612EfB2EB93A2bFD6cF
+
+# Legacy MNEE SDK configuration (if USE_BLOCKCHAIN=false)
+# MNEE_ENVIRONMENT=production
+# MNEE_API_KEY=your_mnee_api_key
+# MNEE_BOT_ADDRESS=your_mnee_wallet_address
+# MNEE_BOT_WIF=your_mnee_wallet_private_key_wif
 
 # Frontend
 NEXT_PUBLIC_API_URL=https://api.yourdomain.com

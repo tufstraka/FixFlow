@@ -97,21 +97,44 @@ GITHUB_APP_ID=your_app_id
 GITHUB_APP_PRIVATE_KEY_PATH=./github-app-private-key.pem
 GITHUB_WEBHOOK_SECRET=your_webhook_secret
 
-# MNEE
-MNEE_ENVIRONMENT=production
-MNEE_API_KEY=your_production_api_key
-MNEE_BOT_ADDRESS=1YourMNEEWalletAddress...
-MNEE_BOT_WIF=LYourPrivateKeyInWIFFormat...
+# ===========================================
+# MNEE Payment Configuration (Ethereum Mainnet)
+# ===========================================
+# MNEE Token Contract: 0x8ccedbAe4916b79da7F3F612EfB2EB93A2bFD6cF
+# Etherscan: https://etherscan.io/token/0x8ccedbAe4916b79da7F3F612EfB2EB93A2bFD6cF
+
+# Enable blockchain mode (recommended)
+USE_BLOCKCHAIN=true
+
+# Ethereum RPC URL (Alchemy/Infura)
+ETHEREUM_RPC_URL=https://eth-mainnet.g.alchemy.com/v2/YOUR_API_KEY
+
+# Bot's Ethereum private key
+ETHEREUM_PRIVATE_KEY=your_ethereum_private_key
+
+# BountyEscrow contract address
+BOUNTY_ESCROW_ADDRESS=0x_your_deployed_escrow_contract
+
+# MNEE Token address (mainnet)
+MNEE_TOKEN_ADDRESS=0x8ccedbAe4916b79da7F3F612EfB2EB93A2bFD6cF
 
 # Security
 JWT_SECRET=generate_secure_secret
 API_KEY=generate_secure_api_key
 ```
 
-### 3.2 Fund MNEE Wallet
+### 3.2 Fund Bot Wallet
 
-1. Transfer MNEE tokens to bot wallet for bounty payments
-2. Recommended: Start with 500-1000 MNEE
+1. **Get MNEE tokens**: Acquire MNEE on Ethereum mainnet
+2. **Fund the bot wallet**: Transfer MNEE to your bot's Ethereum address
+3. **Fund with ETH**: The bot needs ETH for gas fees to execute transactions
+4. Recommended starting balance:
+   - 500-1000 MNEE for bounty payments
+   - 0.1 ETH for gas fees
+
+> **MNEE Token Address (Mainnet):** `0x8ccedbAe4916b79da7F3F612EfB2EB93A2bFD6cF`
+>
+> Verify on [Etherscan](https://etherscan.io/token/0x8ccedbAe4916b79da7F3F612EfB2EB93A2bFD6cF)
 
 ### 3.3 Install and Start
 
