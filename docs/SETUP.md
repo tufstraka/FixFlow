@@ -98,6 +98,15 @@ GITHUB_APP_PRIVATE_KEY_PATH=./github-app-private-key.pem
 GITHUB_WEBHOOK_SECRET=your_webhook_secret
 
 # ===========================================
+# AWS Bedrock AI Configuration
+# ===========================================
+# Used for AI-powered test failure analysis
+AWS_ACCESS_KEY_ID=your_aws_access_key_id
+AWS_SECRET_ACCESS_KEY=your_aws_secret_access_key
+AWS_REGION=us-east-1
+BEDROCK_MODEL_ID=anthropic.claude-3-sonnet-20240229-v1:0
+
+# ===========================================
 # MNEE Payment Configuration (Ethereum Mainnet)
 # ===========================================
 # MNEE Token Contract: 0x8ccedbAe4916b79da7F3F612EfB2EB93A2bFD6cF
@@ -178,20 +187,23 @@ jobs:
       - uses: actions/checkout@v4
       
       - name: Create Bounty
-        uses: bounty-hunter/bounty-hunter-action@v1
+        uses: fixflow/fixflow-action@v1
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          bot_server_url: ${{ secrets.BOUNTY_HUNTER_SERVER_URL }}
-          bot_api_key: ${{ secrets.BOUNTY_HUNTER_API_KEY }}
+          bot_server_url: https://api.fixflow.io  # Or your self-hosted instance
           bounty_amount: 50
           max_bounty: 150
 ```
 
-### 4.3 Add Repository Secrets
+> **Note:** No secrets required! The action uses your repository's built-in GITHUB_TOKEN
+> for authentication. AWS credentials for AI analysis are configured on the server side.
 
-In repository settings > Secrets:
-- `BOUNTY_HUNTER_SERVER_URL`: Your bot server URL
-- `BOUNTY_HUNTER_API_KEY`: The API key from bot `.env`
+### 4.3 Repository Secrets (Optional)
+
+For the hosted FixFlow service, **no secrets are required**!
+
+For self-hosted instances, optionally set:
+- `FIXFLOW_SERVER_URL`: Your self-hosted bot server URL (if not using the default)
 
 ### 4.4 (Optional) Add Configuration File
 

@@ -18,6 +18,7 @@ import bountyService from './services/bountyService.js';
 import mneeService from './services/mnee.js';
 import ethereumPaymentService from './services/ethereumPayment.js';
 import githubAppService from './services/githubApp.js';
+import aiAnalysisService from './services/aiAnalysis.js';
 import db from './db.js';
 
 logger.info('='.repeat(60));
@@ -94,7 +95,7 @@ app.use((req, res) => {
 
 // Database connection
 async function connectDatabase() {
-  logger.info('Step 1/4: Connecting to database...');
+  logger.info('Step 1/5: Connecting to database...');
   try {
     await db.initDb();
     logger.info('✓ Database initialized successfully');
@@ -110,7 +111,7 @@ async function connectDatabase() {
 
 // Initialize bounty service
 async function initializeBountyService() {
-  logger.info('Step 2/4: Initializing bounty service...');
+  logger.info('Step 2/5: Initializing bounty service...');
   try {
     await bountyService.initialize();
     logger.info('✓ Bounty service initialized');
@@ -125,7 +126,7 @@ async function initializeBountyService() {
 
 // Initialize GitHub App service
 async function initializeGitHubAppService() {
-  logger.info('Step 3/4: Initializing GitHub App service...');
+  logger.info('Step 3/5: Initializing GitHub App service...');
   logger.debug('GitHub App config', {
     appId: process.env.GITHUB_APP_ID,
     appName: process.env.GITHUB_APP_NAME,
@@ -147,7 +148,7 @@ async function initializeGitHubAppService() {
 
 // Initialize MNEE payment service
 async function initializeMneeService() {
-  logger.info('Step 4/4: Initializing MNEE payment service...');
+  logger.info('Step 4/5: Initializing MNEE payment service...');
   logger.debug('MNEE config', {
     environment: process.env.MNEE_ENVIRONMENT,
     hasApiKey: !!process.env.MNEE_API_KEY,
@@ -190,6 +191,33 @@ async function initializeMneeService() {
     });
     // Don't exit - allow server to run without MNEE for development
     logger.warn('⚠ MNEE payment features will be unavailable');
+  }
+}
+
+// Initialize AI Analysis service
+async function initializeAIAnalysisService() {
+  logger.info('Step 5/5: Initializing AI Analysis service...');
+  logger.debug('AI Analysis config', {
+    hasAwsAccessKey: !!process.env.AWS_ACCESS_KEY_ID,
+    hasAwsSecretKey: !!process.env.AWS_SECRET_ACCESS_KEY,
+    region: process.env.AWS_REGION || 'us-east-1',
+    modelId: process.env.BEDROCK_MODEL_ID || 'anthropic.claude-3-sonnet-20240229-v1:0'
+  });
+  
+  try {
+    await aiAnalysisService.initialize();
+    if (aiAnalysisService.isEnabled()) {
+      logger.info('✓ AI Analysis service initialized and enabled');
+    } else {
+      logger.warn('⚠ AI Analysis service initialized but disabled (missing AWS credentials)');
+    }
+  } catch (error) {
+    logger.error('✗ AI Analysis service initialization failed', {
+      error: error.message,
+      stack: error.stack
+    });
+    // Don't exit - the app can function without AI analysis
+    logger.warn('⚠ AI-powered analysis features will be unavailable');
   }
 }
 
@@ -274,6 +302,9 @@ async function startServer() {
 
     // Initialize MNEE service
     await initializeMneeService();
+
+    // Initialize AI Analysis service
+    await initializeAIAnalysisService();
 
     // Initialize Ethereum service (if blockchain mode enabled)
     await initializeEthereumService();

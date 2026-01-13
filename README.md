@@ -100,15 +100,10 @@ jobs:
         id: bounty
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          bot_server_url: ${{ secrets.BOUNTY_HUNTER_SERVER_URL }}
-          bot_api_key: ${{ secrets.BOUNTY_HUNTER_API_KEY }}
+          bot_server_url: https://api.fixflow.io  # Or your self-hosted instance
           bounty_amount: 5
           max_bounty: 20
           config_file: .fixflow.yml
-          aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws_region: us-east-1
-          bedrock_model_id: anthropic.claude-3-sonnet-20240229-v1:0
       
       - name: Bounty Creation Summary
         if: steps.bounty.outputs.bounty_created == 'true'
@@ -127,7 +122,7 @@ jobs:
           echo "3. Getting the PR merged"
 ```
 
-That's it. The next time your tests fail, FixFlow will create a bounty automatically.
+That's it. No secrets needed! The GitHub Action uses the built-in `GITHUB_TOKEN` to authenticate with the FixFlow bot server. The next time your tests fail, FixFlow will create a bounty automatically.
 
 ## Configuring Bounty Behavior
 
@@ -212,6 +207,7 @@ FixFlow is a small step in that direction. A tool that makes it easier to mainta
 For detailed technical documentation, see:
 
 - [Setup Guide](docs/SETUP.md) for complete installation instructions
+- [AI Analysis](docs/AI_ANALYSIS.md) for AI-powered failure analysis details
 - [API Reference](docs/API_REFERENCE.md) for endpoint documentation
 - [MNEE Integration](docs/MNEE_SDK_INTEGRATION.md) for payment system details
 - [Troubleshooting](docs/TROUBLESHOOTING.md) for common issues and solutions

@@ -9,6 +9,7 @@ import bountyService from '../services/bountyService.js';
 import mneeService from '../services/mnee.js';
 import ethereumPaymentService from '../services/ethereumPayment.js';
 import githubAppService from '../services/githubApp.js';
+import aiAnalysisService from '../services/aiAnalysis.js';
 import db from '../db.js';
 
 function verifyWebhookSignature(payload, signature, secret = null) {
@@ -29,6 +30,68 @@ function verifyWebhookSignature(payload, signature, secret = null) {
 function verifyApiKey(req) {
   const apiKey = req.headers['x-api-key'] || req.headers['authorization']?.replace('Bearer ', '');
   return apiKey && apiKey === process.env.API_KEY;
+}
+
+/**
+ * Verify GitHub token authentication for GitHub Actions
+ * This allows the GitHub Action to authenticate without a separate API key
+ * by using the GITHUB_TOKEN which proves it has access to the repository
+ * @param {string} token - GitHub token from the request
+ * @param {string} repository - Repository in owner/repo format
+ * @returns {Promise<boolean>} Whether the token is valid for the repository
+ */
+async function verifyGitHubToken(token, repository) {
+  if (!token || !repository) {
+    return false;
+  }
+  
+  try {
+    const [owner, repo] = repository.split('/');
+    
+    // Make a request to GitHub API to verify the token has access to this repo
+    const response = await fetch(`https://api.github.com/repos/${owner}/${repo}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/vnd.github.v3+json',
+        'User-Agent': 'FixFlow-Bot'
+      }
+    });
+    
+    if (response.ok) {
+      logger.debug(`[AUTH] GitHub token verified for ${repository}`);
+      return true;
+    } else {
+      logger.warn(`[AUTH] GitHub token verification failed: ${response.status}`);
+      return false;
+    }
+  } catch (error) {
+    logger.error(`[AUTH] GitHub token verification error:`, error.message);
+    return false;
+  }
+}
+
+/**
+ * Combined authentication - accepts either API key or GitHub token
+ * @param {Object} req - Express request object
+ * @param {string} repository - Repository for GitHub token verification
+ * @returns {Promise<{authenticated: boolean, method: string}>}
+ */
+async function verifyAuthentication(req, repository = null) {
+  // First try API key (for backward compatibility and admin operations)
+  if (verifyApiKey(req)) {
+    return { authenticated: true, method: 'api_key' };
+  }
+  
+  // Then try GitHub token authentication
+  const githubToken = req.headers['x-github-token'] || req.headers['authorization']?.replace('Bearer ', '');
+  if (githubToken && repository) {
+    const isValid = await verifyGitHubToken(githubToken, repository);
+    if (isValid) {
+      return { authenticated: true, method: 'github_token' };
+    }
+  }
+  
+  return { authenticated: false, method: null };
 }
 
 router.post('/github', async (req, res) => {
@@ -97,14 +160,10 @@ router.post('/github', async (req, res) => {
  */
 router.post('/create-bounty', async (req, res) => {
   try {
-    // Verify API key
-    if (!verifyApiKey(req)) {
-      return res.status(401).json({ error: 'Invalid or missing API key' });
-    }
-
     const {
       repository,
       runId,
+      runNumber,
       jobName,
       failureUrl,
       issueNumber,
@@ -113,7 +172,12 @@ router.post('/create-bounty', async (req, res) => {
       testFile,
       testName,
       bountyAmount,
-      maxAmount
+      maxAmount,
+      commit,
+      branch,
+      failedSteps,
+      // Legacy: these can be passed from the GitHub Action if it still does its own analysis
+      aiAnalysis: providedAiAnalysis
     } = req.body;
 
     // Validate required fields
@@ -123,50 +187,85 @@ router.post('/create-bounty', async (req, res) => {
       });
     }
 
-    logger.info(`Create bounty request for ${repository} - amount: ${bountyAmount} MNEE`);
+    // Verify authentication (API key OR GitHub token)
+    const auth = await verifyAuthentication(req, repository);
+    if (!auth.authenticated) {
+      return res.status(401).json({
+        error: 'Authentication required',
+        message: 'Provide either X-API-Key header or X-GitHub-Token header with a valid token for the repository'
+      });
+    }
+    
+    logger.info(`[CREATE-BOUNTY] Authenticated via ${auth.method}`);
+
+    logger.info(`[CREATE-BOUNTY] ========== CREATE BOUNTY REQUEST ==========`);
+    logger.info(`[CREATE-BOUNTY] Repository: ${repository}`);
+    logger.info(`[CREATE-BOUNTY] Amount: ${bountyAmount} MNEE`);
+    logger.info(`[CREATE-BOUNTY] Run ID: ${runId || 'N/A'}`);
+    logger.info(`[CREATE-BOUNTY] Job Name: ${jobName || 'N/A'}`);
+    logger.info(`[CREATE-BOUNTY] Test: ${testName || testFile || 'N/A'}`);
+    logger.info(`[CREATE-BOUNTY] Error Log Length: ${errorLog?.length || 0} chars`);
+    logger.info(`[CREATE-BOUNTY] AI Analysis Provided: ${!!providedAiAnalysis}`);
+
+    // Perform AI analysis if not provided by the caller
+    let aiAnalysis = providedAiAnalysis;
+    if (!aiAnalysis && aiAnalysisService.isEnabled()) {
+      logger.info(`[CREATE-BOUNTY] Performing AI analysis of failure...`);
+      try {
+        aiAnalysis = await aiAnalysisService.analyzeFailure(
+          errorLog || 'No error log provided',
+          { name: jobName || 'Unknown job' },
+          failedSteps || [],
+          {
+            repository,
+            branch: branch || 'unknown',
+            commit: commit || 'unknown'
+          }
+        );
+        logger.info(`[CREATE-BOUNTY] ✓ AI analysis completed - Error Type: ${aiAnalysis.errorType}`);
+      } catch (analysisError) {
+        logger.warn(`[CREATE-BOUNTY] AI analysis failed:`, analysisError.message);
+        aiAnalysis = aiAnalysisService.getFallbackAnalysis(analysisError.message);
+      }
+    } else if (!aiAnalysis) {
+      logger.info(`[CREATE-BOUNTY] AI service not enabled, using fallback analysis`);
+      aiAnalysis = aiAnalysisService.getFallbackAnalysis('AI service not configured');
+    }
 
     let finalIssueUrl = issueUrl;
     let finalIssueNumber = issueNumber;
 
-    // If no issue exists, create one via GitHub App
+    // If no issue exists, create one via GitHub App with AI-enhanced content
     if (!issueNumber || !issueUrl) {
       try {
         const [owner, repo] = repository.split('/');
         const octokit = await githubAppService.getOctokitForRepo(owner, repo);
         
-        // Create issue for the failing test
-        const issueTitle = testName
-          ? `🐛 Failing Test: ${testName}`
-          : `🐛 CI/CD Failure in ${jobName || 'workflow'}`;
+        // Generate error summary
+        const errorSummary = testName
+          ? `Failing Test: ${testName}`
+          : (jobName ? `CI/CD Failure in ${jobName}` : 'Test failure detected');
+
+        // Generate AI-enhanced issue title
+        const issueTitle = aiAnalysisService.generateIssueTitle(aiAnalysis, errorSummary, bountyAmount);
         
-        const issueBody = `## Automated Bounty Issue
-
-A failing test has been detected and a bounty has been created.
-
-**Repository:** ${repository}
-**Workflow Run:** ${runId ? `[View Run](${failureUrl})` : 'N/A'}
-**Test File:** ${testFile || 'N/A'}
-**Test Name:** ${testName || 'N/A'}
-
-### Bounty Details
-- **Initial Amount:** ${bountyAmount} MNEE
-- **Maximum Amount:** ${maxAmount || bountyAmount * 3} MNEE
-- **Escalation:** Amount increases over time until fixed
-
-### Error Log
-\`\`\`
-${errorLog ? errorLog.slice(0, 2000) : 'No error log provided'}
-\`\`\`
-
-### How to Claim
-1. Fork this repository
-2. Fix the failing test
-3. Create a PR that references this issue (e.g., "Fixes #${'{issueNumber}'}")
-4. Add your MNEE address to the PR description: \`MNEE: youraddress\`
-5. Once merged and tests pass, payment is automatic!
-
----
-*This issue was created by [FixFlow Bot](https://github.com/bounty-hunter/bounty-hunter)*`;
+        // Generate AI-enhanced issue body
+        const issueBody = aiAnalysisService.generateIssueBody(
+          aiAnalysis,
+          { amount: bountyAmount, maxAmount: maxAmount || bountyAmount * 3 },
+          {
+            runId,
+            runNumber,
+            url: failureUrl,
+            commit: commit || 'Unknown',
+            branch: branch || 'Unknown',
+            jobName: jobName || 'Unknown'
+          },
+          {
+            summary: errorSummary,
+            failedSteps: failedSteps || []
+          }
+        );
 
         const { data: issue } = await octokit.rest.issues.create({
           owner,
@@ -179,9 +278,24 @@ ${errorLog ? errorLog.slice(0, 2000) : 'No error log provided'}
         finalIssueNumber = issue.number;
         finalIssueUrl = issue.html_url;
 
-        logger.info(`Created issue #${issue.number} for bounty in ${repository}`);
+        logger.info(`[CREATE-BOUNTY] ✓ Created issue #${issue.number} for bounty in ${repository}`);
+
+        // Post AI-enhanced success comment
+        try {
+          const successComment = aiAnalysisService.generateBountyCreatedComment(
+            'pending', // Bounty ID will be assigned after creation
+            bountyAmount,
+            maxAmount || bountyAmount * 3,
+            aiAnalysis,
+            issue.number
+          );
+          
+          // We'll post the comment after bounty creation with actual ID
+        } catch (commentError) {
+          logger.warn(`[CREATE-BOUNTY] Could not prepare success comment:`, commentError.message);
+        }
       } catch (error) {
-        logger.error('Failed to create GitHub issue:', error);
+        logger.error('[CREATE-BOUNTY] Failed to create GitHub issue:', error);
         return res.status(500).json({
           error: 'Failed to create GitHub issue',
           message: error.message
@@ -198,42 +312,51 @@ ${errorLog ? errorLog.slice(0, 2000) : 'No error log provided'}
       issueUrl: finalIssueUrl,
       metadata: {
         runId,
+        runNumber,
         jobName,
         failureUrl,
         errorLog: errorLog?.slice(0, 5000), // Limit stored error log
         testFile,
-        testName
+        testName,
+        commit,
+        branch,
+        aiAnalysis: {
+          rootCause: aiAnalysis?.rootCause,
+          errorType: aiAnalysis?.errorType,
+          estimatedComplexity: aiAnalysis?.estimatedComplexity,
+          affectedFiles: aiAnalysis?.affectedFiles
+        }
       }
     });
 
-    // Post comment on the issue announcing the bounty
+    // Post comment on the issue announcing the bounty with AI insights
     try {
       const [owner, repo] = repository.split('/');
       const octokit = await githubAppService.getOctokitForRepo(owner, repo);
+      
+      const successComment = aiAnalysisService.generateBountyCreatedComment(
+        result.bountyId,
+        bountyAmount,
+        maxAmount || bountyAmount * 3,
+        aiAnalysis,
+        finalIssueNumber
+      );
       
       await octokit.rest.issues.createComment({
         owner,
         repo,
         issue_number: finalIssueNumber,
-        body: `💰 **Bounty Created!**
-
-A bounty of **${bountyAmount} MNEE** has been placed on this issue.
-
-**How to claim:**
-1. Fix the issue and create a PR
-2. Reference this issue in your PR (e.g., "Fixes #${finalIssueNumber}")
-3. Add your MNEE address: \`MNEE: your_address_here\`
-
-The bounty will increase over time if not claimed. Maximum: ${maxAmount || bountyAmount * 3} MNEE.
-
-Good luck! 🚀`
+        body: successComment
       });
+      
+      logger.info(`[CREATE-BOUNTY] ✓ Posted bounty success comment`);
     } catch (error) {
-      logger.warn('Failed to post bounty comment:', error.message);
+      logger.warn('[CREATE-BOUNTY] Failed to post bounty comment:', error.message);
       // Don't fail the request for this
     }
 
-    logger.info(`Bounty created: ${result.bountyId} for ${repository}#${finalIssueNumber}`);
+    logger.info(`[CREATE-BOUNTY] ✓ Bounty created: ${result.bountyId} for ${repository}#${finalIssueNumber}`);
+    logger.info(`[CREATE-BOUNTY] ========== CREATE BOUNTY COMPLETE ==========`);
 
     res.status(201).json({
       success: true,
@@ -241,10 +364,15 @@ Good luck! 🚀`
       issueNumber: finalIssueNumber,
       issueUrl: finalIssueUrl,
       amount: bountyAmount,
-      maxAmount: maxAmount || bountyAmount * 3
+      maxAmount: maxAmount || bountyAmount * 3,
+      aiAnalysis: {
+        rootCause: aiAnalysis?.rootCause,
+        errorType: aiAnalysis?.errorType,
+        estimatedComplexity: aiAnalysis?.estimatedComplexity
+      }
     });
   } catch (error) {
-    logger.error('Failed to create bounty via webhook:', error);
+    logger.error('[CREATE-BOUNTY] Failed to create bounty via webhook:', error);
     res.status(500).json({
       error: 'Failed to create bounty',
       message: error.message

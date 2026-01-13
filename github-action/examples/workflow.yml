@@ -16,19 +16,13 @@ jobs:
         uses: actions/checkout@v4
       
       - name: Create Bounty for Failed Tests
-        uses: bounty-hunter/bounty-hunter-action@v1
+        uses: fixflow/fixflow-action@v1
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          bot_server_url: ${{ secrets.BOUNTY_HUNTER_SERVER_URL }}
-          bot_api_key: ${{ secrets.BOUNTY_HUNTER_API_KEY }}
+          bot_server_url: https://api.fixflow.io  # Or your self-hosted instance
           bounty_amount: 50  # Default amount in MNEE
           max_bounty: 150   # Maximum after escalation
-          config_file: .bounty-hunter.yml
-          # AWS Bedrock configuration for AI-powered failure analysis
-          aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws_region: us-east-1
-          bedrock_model_id: anthropic.claude-3-sonnet-20240229-v1:0
+          config_file: .fixflow.yml
         id: bounty
       
       - name: Bounty Created Summary
@@ -37,6 +31,7 @@ jobs:
           echo "✅ Bounty created successfully!"
           echo "Issue: ${{ steps.bounty.outputs.issue_url }}"
           echo "Bounty ID: ${{ steps.bounty.outputs.bounty_id }}"
+          echo "AI Analysis: ${{ steps.bounty.outputs.ai_error_type }} (${{ steps.bounty.outputs.ai_complexity }} complexity)"
 
 # Alternative: Trigger on push/PR with test job
 ---
@@ -69,21 +64,16 @@ jobs:
       
       - name: Create Bounty on Test Failure
         if: steps.test.outcome == 'failure'
-        uses: bounty-hunter/bounty-hunter-action@v1
+        uses: fixflow/fixflow-action@v1
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          bot_server_url: ${{ secrets.BOUNTY_HUNTER_SERVER_URL }}
-          bot_api_key: ${{ secrets.BOUNTY_HUNTER_API_KEY }}
+          bot_server_url: https://api.fixflow.io
           bounty_amount: 50
           on_failure_only: true
-          # AWS Bedrock for AI analysis
-          aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws_region: us-east-1
 
-# Example with custom configuration and advanced AI options
+# Example with custom configuration
 ---
-name: Custom Bounty Configuration with AI
+name: Custom Bounty Configuration
 
 on:
   workflow_dispatch:
@@ -92,10 +82,6 @@ on:
         description: 'Bounty amount in MNEE'
         required: false
         default: '75'
-      model_id:
-        description: 'Bedrock model ID for analysis'
-        required: false
-        default: 'anthropic.claude-3-sonnet-20240229-v1:0'
 
 jobs:
   test-and-bounty:
@@ -111,37 +97,46 @@ jobs:
       
       - name: Create Custom Bounty with AI Analysis
         if: steps.integration-tests.outcome == 'failure'
-        uses: bounty-hunter/bounty-hunter-action@v1
+        uses: fixflow/fixflow-action@v1
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          bot_server_url: ${{ secrets.BOUNTY_HUNTER_SERVER_URL }}
-          bot_api_key: ${{ secrets.BOUNTY_HUNTER_API_KEY }}
+          bot_server_url: https://api.fixflow.io
           bounty_amount: ${{ github.event.inputs.bounty_amount || '75' }}
           max_bounty: 300  # Higher max for integration tests
-          # AWS Bedrock configuration
-          aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws_region: ${{ secrets.AWS_REGION || 'us-east-1' }}
-          bedrock_model_id: ${{ github.event.inputs.model_id }}
 
 # ============================================================================
-# REQUIRED SECRETS SETUP
+# NO SECRETS REQUIRED!
 # ============================================================================
-# Add these secrets to your repository (Settings > Secrets and variables > Actions):
+# The FixFlow GitHub Action uses your repository's built-in GITHUB_TOKEN
+# for authentication. No additional secrets are needed!
 #
-# BOUNTY_HUNTER_SERVER_URL - URL of your FixFlow bot server
-# BOUNTY_HUNTER_API_KEY    - API key for authenticating with the bot
-# AWS_ACCESS_KEY_ID        - AWS access key with Bedrock permissions
-# AWS_SECRET_ACCESS_KEY    - AWS secret access key
-# AWS_REGION               - (Optional) AWS region, defaults to us-east-1
+# The GITHUB_TOKEN proves the action has access to the repository,
+# which the FixFlow bot server verifies before creating bounties.
+#
+# For self-hosted FixFlow servers, you may need to set:
+# - FIXFLOW_SERVER_URL - URL of your self-hosted instance
 #
 # ============================================================================
-# SUPPORTED BEDROCK MODELS
+# HOW IT WORKS
 # ============================================================================
-# The following Claude models are recommended for failure analysis:
+# 1. When your tests fail, the GitHub Action detects the failure
+# 2. It uses your GITHUB_TOKEN to authenticate with the FixFlow bot server
+# 3. The bot server verifies the token has access to your repository
+# 4. AI-powered analysis is performed using Amazon Bedrock (server-side)
+# 5. A GitHub issue is created with:
+#    - Detailed AI analysis of the root cause
+#    - Suggested fixes with code examples
+#    - Bounty amount and claiming instructions
+# 6. When someone fixes the issue and their PR is merged, they get paid!
 #
-# - anthropic.claude-3-sonnet-20240229-v1:0 (default, good balance)
-# - anthropic.claude-3-haiku-20240307-v1:0 (faster, cheaper)
-# - anthropic.claude-3-opus-20240229-v1:0 (most capable, higher cost)
+# ============================================================================
+# OUTPUTS
+# ============================================================================
+# The action provides these outputs for use in subsequent steps:
 #
-# Make sure the model is enabled in your AWS Bedrock console.
+# - bounty_created: 'true' or 'false'
+# - bounty_id: The unique ID of the created bounty
+# - issue_number: The GitHub issue number
+# - issue_url: URL to the created issue
+# - ai_error_type: AI-detected error type (e.g., "Assertion Error")
+# - ai_complexity: AI-estimated fix complexity (easy/medium/hard)
